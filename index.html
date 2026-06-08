@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111111" />
+    <meta
+      name="description"
+      content="Habit Builder - pelacak goals & kebiasaan harian yang berjalan di semua perangkat."
+    />
+    <title>Habit Builder & Financial Management</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- Sidebar / Header -->
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">◆</span>
+          <span class="brand-text">HABIT BUILDER & FINANCIAL MANAGEMENT</span>
+        </div>
+        <div class="month-nav">
+          <button id="prevMonth" class="icon-btn" aria-label="Bulan sebelumnya">
+            ‹
+          </button>
+          <button
+            id="monthTitle"
+            class="month-title"
+            aria-label="Pilih bulan"
+          ></button>
+          <button id="nextMonth" class="icon-btn" aria-label="Bulan berikutnya">
+            ›
+          </button>
+        </div>
+        <div class="topbar-actions">
+          <button
+            id="themeBtn"
+            class="icon-btn"
+            title="Ganti tema"
+            aria-label="Ganti tema gelap/terang"
+          >
+            🌙
+          </button>
+          <button
+            id="exportBtn"
+            class="icon-btn"
+            title="Ekspor / backup data"
+            aria-label="Ekspor data"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+          <button
+            id="importBtn"
+            class="icon-btn"
+            title="Impor data dari file"
+            aria-label="Impor data"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </button>
+          <input
+            id="importFile"
+            type="file"
+            accept="application/json,.json"
+            hidden
+          />
+          <button id="installBtn" class="ghost-btn" hidden>Install App</button>
+        </div>
+      </header>
+
+      <!-- Progress overview -->
+      <section class="overview">
+        <div class="overview-card">
+          <div class="overview-label">Progress Bulan Ini</div>
+          <div class="overview-value"><span id="monthPercent">0%</span></div>
+          <div class="progress-track">
+            <div id="monthProgress" class="progress-fill"></div>
+          </div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-label">Hari Selesai</div>
+          <div class="overview-value">
+            <span id="daysDone">0</span
+            ><small>/ <span id="daysTotal">0</span></small>
+          </div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-label">Streak Terpanjang</div>
+          <div class="overview-value">
+            <span id="streak">0</span><small>hari</small>
+          </div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-label">Jumlah Habit</div>
+          <div class="overview-value"><span id="habitCount">0</span></div>
+        </div>
+        <div
+          class="overview-card overview-card--savings"
+          id="savingsCard"
+          role="button"
+          tabindex="0"
+          title="Lihat rincian pemasukan"
+          aria-label="Lihat rincian pemasukan bulan ini"
+        >
+          <div class="overview-label">Total Saldo Tabungan</div>
+          <div class="overview-value">
+            <span id="totalSavings">Rp0</span>
+          </div>
+          <div class="savings-hint">Klik untuk rincian ›</div>
+        </div>
+        <div
+          class="overview-card overview-card--expense"
+          id="expenseCard"
+          role="button"
+          tabindex="0"
+          title="Lihat rincian pengeluaran"
+          aria-label="Lihat rincian pengeluaran bulan ini"
+        >
+          <div class="overview-label">Total Pengeluaran</div>
+          <div class="overview-value">
+            <span id="totalExpense">Rp0</span>
+          </div>
+          <div class="savings-hint">Klik untuk rincian ›</div>
+        </div>
+      </section>
+
+      <!-- Tracker grid -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Tracker Harian</h2>
+          <div class="legend">
+            <span><i class="dot done"></i> Selesai</span>
+            <span><i class="dot"></i> Belum</span>
+          </div>
+        </div>
+        <div class="grid-scroll">
+          <table id="trackerTable" class="tracker"></table>
+        </div>
+      </section>
+
+      <!-- Grafik progres -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Grafik Progres</h2>
+          <div class="legend chart-legend">
+            <span><i class="lg lg-line"></i> % Harian</span>
+            <span><i class="lg lg-avg"></i> Rata-rata</span>
+          </div>
+        </div>
+        <div class="chart-stats" id="chartStats"></div>
+        <div class="chart-wrap">
+          <svg
+            id="progressChart"
+            class="progress-chart"
+            viewBox="0 0 600 240"
+            preserveAspectRatio="xMidYMid meet"
+            role="img"
+            aria-label="Grafik progres harian bulan ini"
+          ></svg>
+          <div id="chartTooltip" class="chart-tooltip" hidden></div>
+        </div>
+      </section>
+
+      <!-- Catatan progres (catch-up) -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Catatan Progres</h2>
+          <span id="progressLogCount" class="log-count"></span>
+        </div>
+        <div id="progressLog" class="progress-log"></div>
+      </section>
+
+      <!-- Habit manager -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>My Habits</h2>
+          <form id="addHabitForm" class="add-habit">
+            <input
+              id="habitInput"
+              type="text"
+              maxlength="40"
+              placeholder="Tambah habit baru…"
+              autocomplete="off"
+            />
+            <button type="submit" class="primary-btn">+ Tambah</button>
+          </form>
+        </div>
+        <ul id="habitList" class="habit-list"></ul>
+      </section>
+
+      <!-- RAB / Harian -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>RAB · Harian</h2>
+          <span id="rabToday" class="rab-today"></span>
+        </div>
+
+        <div class="rab-summary">
+          <div class="rab-sum-card">
+            <div class="rab-sum-label">Saldo Tersedia</div>
+            <div class="rab-sum-value" id="rabAvailable">Rp0</div>
+          </div>
+          <div class="rab-sum-card">
+            <div class="rab-sum-label">Tabungan (Pemasukan)</div>
+            <div class="rab-sum-value" id="rabSavings">Rp0</div>
+          </div>
+          <div class="rab-sum-card">
+            <div class="rab-sum-label">Sisa Hari Ini</div>
+            <div class="rab-sum-value" id="rabRemaining">Rp0</div>
+          </div>
+          <div class="rab-sum-card">
+            <div class="rab-sum-label">Pengeluaran Hari Ini</div>
+            <div class="rab-sum-value" id="rabSpentToday">Rp0</div>
+          </div>
+        </div>
+
+        <form id="addCatForm" class="add-cat">
+          <input
+            id="catName"
+            type="text"
+            maxlength="24"
+            placeholder="Kategori (mis. Bensin)"
+            autocomplete="off"
+          />
+          <input
+            id="catDaily"
+            type="number"
+            min="0"
+            step="500"
+            inputmode="numeric"
+            placeholder="Anggaran/hari (Rp)"
+          />
+          <button type="submit" class="primary-btn">+ Tambah</button>
+        </form>
+
+        <ul id="catList" class="cat-list"></ul>
+      </section>
+
+      <footer class="foot">
+        <span>@Davuriko-Daffa-2026.</span>
+        <button id="resetMonth" class="link-btn">Reset bulan ini</button>
+      </footer>
+    </div>
+
+    <!-- Modal: Rincian Pemasukan -->
+    <div id="incomeModal" class="modal-overlay" hidden>
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="incomeModalTitle"
+      >
+        <div class="modal-head">
+          <h3 id="incomeModalTitle">Rincian Pemasukan</h3>
+          <button
+            id="incomeModalClose"
+            class="icon-btn"
+            aria-label="Tutup"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="modal-total">
+          <span class="modal-total-label">Total pemasukan bulan ini</span>
+          <span id="incomeMonthTotal" class="modal-total-value">Rp0</span>
+        </div>
+
+        <div id="incomeList" class="income-list"></div>
+
+        <form id="addExtraForm" class="add-extra">
+          <div class="add-extra-title">
+            + Pemasukan tak terduga (di luar kategori)
+          </div>
+          <div class="add-extra-row">
+            <input id="extraDate" type="date" aria-label="Tanggal pemasukan" />
+            <input
+              id="extraLabel"
+              type="text"
+              maxlength="40"
+              placeholder="Keterangan (mis. THR, hadiah)"
+              autocomplete="off"
+            />
+            <input
+              id="extraAmount"
+              type="number"
+              min="0"
+              step="500"
+              inputmode="numeric"
+              placeholder="Jumlah (Rp)"
+            />
+            <button type="submit" class="primary-btn">Tambah</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Rincian Pengeluaran -->
+    <div id="expenseModal" class="modal-overlay" hidden>
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="expenseModalTitle"
+      >
+        <div class="modal-head">
+          <h3 id="expenseModalTitle">Rincian Pengeluaran</h3>
+          <button
+            id="expenseModalClose"
+            class="icon-btn"
+            aria-label="Tutup"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="modal-total">
+          <span class="modal-total-label">Total pengeluaran bulan ini</span>
+          <span id="expenseMonthTotal" class="modal-total-value neg">Rp0</span>
+        </div>
+
+        <div id="expenseList" class="income-list"></div>
+      </div>
+    </div>
+
+    <!-- Modal: Catch-up progres kemarin -->
+    <div id="catchupModal" class="modal-overlay" hidden>
+      <div
+        class="modal catchup-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="catchupTitle"
+      >
+        <div class="modal-head">
+          <h3 id="catchupTitle">Halo, apa kabar? 👋</h3>
+          <button
+            id="catchupClose"
+            class="icon-btn"
+            aria-label="Tutup"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="catchup-body">
+          <p id="catchupIntro" class="catchup-intro"></p>
+
+          <div class="catchup-missed">
+            <div class="catchup-missed-title">Progres yang belum terisi</div>
+            <ul id="catchupMissedList" class="catchup-missed-list"></ul>
+          </div>
+
+          <div class="catchup-q">Kenapa kemarin belum penuh?</div>
+          <div id="catchupOptions" class="catchup-options"></div>
+
+          <div id="catchupReason" class="catchup-reason" hidden>
+            <textarea
+              id="catchupReasonText"
+              maxlength="160"
+              rows="2"
+              placeholder="Tulis alasanmu di sini..."
+            ></textarea>
+          </div>
+
+          <div id="catchupRefill" class="catchup-refill" hidden>
+            <div class="catchup-refill-title">
+              Tandai yang sebenarnya sudah kamu lakukan
+            </div>
+            <div id="catchupRefillList" class="catchup-refill-list"></div>
+          </div>
+        </div>
+
+        <div class="catchup-foot">
+          <button id="catchupSend" class="primary-btn catchup-send" disabled>
+            Kirim
+          </button>
+        </div>
+
+        <div id="catchupSuccess" class="catchup-success" hidden>
+          <div class="catchup-success-check">✓</div>
+          <div class="catchup-success-title">Terkirim!</div>
+          <div id="catchupSuccessMsg" class="catchup-success-msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
