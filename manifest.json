@@ -1,0 +1,25 @@
+{
+  "name": "Habit Builder",
+  "short_name": "Habits",
+  "description": "Pelacak goals & kebiasaan harian yang berjalan di semua perangkat.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f4f2",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
