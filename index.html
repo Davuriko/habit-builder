@@ -38,6 +38,15 @@
           </button>
         </div>
         <div class="topbar-actions">
+          <a
+            href="reward-page.html"
+            id="rewardEntry"
+            class="reward-btn"
+            title="Reward & Pencapaian"
+            aria-label="Reward & Pencapaian"
+          >
+            🏆 <span id="rw-total-points">0</span> pts
+          </a>
           <button
             id="themeBtn"
             class="icon-btn"
@@ -100,37 +109,139 @@
         </div>
       </header>
 
-      <!-- Navigasi halaman -->
-      <nav class="page-nav" role="tablist" aria-label="Navigasi halaman">
+      <!-- Filter SVG untuk efek liquid-glass pada bottom nav -->
+      <svg
+        class="glass-filter-defs"
+        aria-hidden="true"
+        focusable="false"
+        width="0"
+        height="0"
+      >
+        <filter
+          id="glass-distortion"
+          x="0%"
+          y="0%"
+          width="100%"
+          height="100%"
+          filterUnits="objectBoundingBox"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.001 0.005"
+            numOctaves="1"
+            seed="17"
+            result="turbulence"
+          />
+          <feComponentTransfer in="turbulence" result="mapped">
+            <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+            <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+            <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+          </feComponentTransfer>
+          <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+          <feSpecularLighting
+            in="softMap"
+            surfaceScale="5"
+            specularConstant="1"
+            specularExponent="100"
+            lighting-color="white"
+            result="specLight"
+          >
+            <fePointLight x="-200" y="-200" z="300" />
+          </feSpecularLighting>
+          <feComposite
+            in="specLight"
+            operator="arithmetic"
+            k1="0"
+            k2="1"
+            k3="1"
+            k4="0"
+            result="litImage"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="softMap"
+            scale="120"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
+
+      <!-- Navigasi halaman (bottom nav) -->
+      <nav class="bottom-nav" role="tablist" aria-label="Navigasi halaman">
         <button
-          class="page-tab is-active"
+          class="nav-item is-active"
           data-page="habit"
           role="tab"
           aria-selected="true"
           type="button"
         >
-          <span class="page-tab-ic" aria-hidden="true">✓</span>
-          <span>Habit</span>
+          <img
+            class="nav-ic"
+            src="icons/nav-habit.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <span class="nav-label">Habit</span>
         </button>
         <button
-          class="page-tab"
+          class="nav-item"
           data-page="finance"
           role="tab"
           aria-selected="false"
           type="button"
         >
-          <span class="page-tab-ic" aria-hidden="true">₿</span>
-          <span>Keuangan</span>
+          <img
+            class="nav-ic"
+            src="icons/nav-rab.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <span class="nav-label">RAB</span>
         </button>
         <button
-          class="page-tab"
+          id="quickNoteFab"
+          class="nav-fab"
+          type="button"
+          title="Tulis catatan cepat"
+          aria-label="Tulis catatan cepat"
+        >
+          <img
+            class="nav-fab-ic"
+            src="icons/nav-pencil.png"
+            alt=""
+            aria-hidden="true"
+          />
+        </button>
+        <button
+          class="nav-item"
           data-page="notes"
           role="tab"
           aria-selected="false"
           type="button"
         >
-          <span class="page-tab-ic" aria-hidden="true">📝</span>
-          <span>Catatan</span>
+          <img
+            class="nav-ic"
+            src="icons/nav-catatan.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <span class="nav-label">Catatan</span>
+        </button>
+        <button
+          class="nav-item"
+          data-page="stats"
+          role="tab"
+          aria-selected="false"
+          type="button"
+        >
+          <img
+            class="nav-ic"
+            src="icons/nav-statistik.png"
+            alt=""
+            aria-hidden="true"
+          />
+          <span class="nav-label">Statistik</span>
         </button>
       </nav>
 
@@ -263,7 +374,9 @@
           </div>
           <div class="overview-card">
             <div class="overview-label">Anggaran Bulan Ini</div>
-            <div class="overview-value"><span id="monthBudgetTotal">Rp0</span></div>
+            <div class="overview-value">
+              <span id="monthBudgetTotal">Rp0</span>
+            </div>
             <div class="progress-track">
               <div id="budgetUsedBar" class="progress-fill"></div>
             </div>
@@ -276,13 +389,87 @@
           </div>
         </section>
 
+        <!-- Target Tabungan -->
+        <section class="panel" id="goalPanel">
+          <div class="panel-head">
+            <h2>🎯 Target Tabungan</h2>
+            <div class="panel-head-actions">
+              <button
+                id="goalSortBtn"
+                class="ghost-btn ghost-btn--soft"
+                type="button"
+                title="Ubah urutan"
+              >
+                ↕ <span id="goalSortLabel">Terdekat</span>
+              </button>
+              <button
+                id="goalAddBtn"
+                class="ghost-btn ghost-btn--soft"
+                type="button"
+              >
+                ＋ Tujuan
+              </button>
+            </div>
+          </div>
+
+          <!-- Ringkasan tabungan -->
+          <div class="goal-summary">
+            <div class="goal-sum-item">
+              <div class="goal-sum-val" id="goalSumTotal">Rp0</div>
+              <div class="goal-sum-lbl">Terkumpul</div>
+            </div>
+            <div class="goal-sum-item">
+              <div class="goal-sum-val" id="goalSumRemain">Rp0</div>
+              <div class="goal-sum-lbl">Sisa Target</div>
+            </div>
+            <div class="goal-sum-item">
+              <div class="goal-sum-val" id="goalSumDone">0</div>
+              <div class="goal-sum-lbl">Tercapai</div>
+            </div>
+          </div>
+          <div class="goal-count-sub" id="goalCountSub">0 tujuan aktif</div>
+
+          <!-- Daftar tujuan -->
+          <div id="goalList" class="goal-list"></div>
+
+          <!-- Empty state -->
+          <div id="goalEmpty" class="goal-empty" hidden>
+            <div class="goal-empty-icon">🎯</div>
+            <p class="goal-empty-title">Belum ada target tabungan</p>
+            <p class="goal-empty-sub">
+              Buat tujuan keuangan pertamamu dan pantau progresnya!
+            </p>
+            <button id="goalEmptyBtn" class="primary-btn" type="button">
+              ＋ Buat Tujuan Pertama
+            </button>
+          </div>
+
+          <p id="goalTip" class="goal-tip" hidden>
+            💡 Tekan "Setor" untuk menabung. Capai target & dapatkan poin!
+          </p>
+        </section>
+
         <!-- Peringatan otomatis -->
         <section class="panel">
           <div class="panel-head">
             <h2>Peringatan Otomatis</h2>
-            <button id="notifyBtn" class="ghost-btn ghost-btn--soft" type="button">
-              Aktifkan notifikasi
-            </button>
+            <div class="panel-head-actions">
+              <a
+                href="notification-settings.html"
+                class="ghost-btn ghost-btn--soft"
+                title="Pengaturan notifikasi"
+                aria-label="Pengaturan notifikasi"
+              >
+                ⚙️ Pengaturan
+              </a>
+              <button
+                id="notifyBtn"
+                class="ghost-btn ghost-btn--soft"
+                type="button"
+              >
+                Aktifkan notifikasi
+              </button>
+            </div>
           </div>
           <div id="alertList" class="alert-list"></div>
         </section>
@@ -358,10 +545,18 @@
           <div class="cal-grid" id="calendarGrid"></div>
           <div class="cal-legend">
             <span>Pengeluaran:</span>
-            <span class="cal-legend-item"><i class="cal-sw cal-sw-0"></i> Tidak ada</span>
-            <span class="cal-legend-item"><i class="cal-sw cal-sw-1"></i> Rendah</span>
-            <span class="cal-legend-item"><i class="cal-sw cal-sw-2"></i> Sedang</span>
-            <span class="cal-legend-item"><i class="cal-sw cal-sw-3"></i> Tinggi</span>
+            <span class="cal-legend-item"
+              ><i class="cal-sw cal-sw-0"></i> Tidak ada</span
+            >
+            <span class="cal-legend-item"
+              ><i class="cal-sw cal-sw-1"></i> Rendah</span
+            >
+            <span class="cal-legend-item"
+              ><i class="cal-sw cal-sw-2"></i> Sedang</span
+            >
+            <span class="cal-legend-item"
+              ><i class="cal-sw cal-sw-3"></i> Tinggi</span
+            >
           </div>
           <div id="calendarDetail" class="cal-detail"></div>
         </section>
@@ -402,23 +597,48 @@
             <span id="dnMoodHint" class="rab-today">Pilih perasaanmu</span>
           </div>
           <div class="dn-mood-row" id="dnMoodRow">
-            <button class="dn-mood-btn" type="button" data-mood="1" data-emoji="😤">
+            <button
+              class="dn-mood-btn"
+              type="button"
+              data-mood="1"
+              data-emoji="😤"
+            >
               <span class="dn-mood-emoji">😤</span>
               <span class="dn-mood-label">Kesal</span>
             </button>
-            <button class="dn-mood-btn" type="button" data-mood="2" data-emoji="😕">
+            <button
+              class="dn-mood-btn"
+              type="button"
+              data-mood="2"
+              data-emoji="😕"
+            >
               <span class="dn-mood-emoji">😕</span>
               <span class="dn-mood-label">Sedih</span>
             </button>
-            <button class="dn-mood-btn" type="button" data-mood="3" data-emoji="😐">
+            <button
+              class="dn-mood-btn"
+              type="button"
+              data-mood="3"
+              data-emoji="😐"
+            >
               <span class="dn-mood-emoji">😐</span>
               <span class="dn-mood-label">Biasa</span>
             </button>
-            <button class="dn-mood-btn" type="button" data-mood="4" data-emoji="😊">
+            <button
+              class="dn-mood-btn"
+              type="button"
+              data-mood="4"
+              data-emoji="😊"
+            >
               <span class="dn-mood-emoji">😊</span>
               <span class="dn-mood-label">Senang</span>
             </button>
-            <button class="dn-mood-btn" type="button" data-mood="5" data-emoji="🤩">
+            <button
+              class="dn-mood-btn"
+              type="button"
+              data-mood="5"
+              data-emoji="🤩"
+            >
               <span class="dn-mood-emoji">🤩</span>
               <span class="dn-mood-label">Semangat</span>
             </button>
@@ -431,20 +651,48 @@
             <h2>Catatan Cepat</h2>
           </div>
           <div class="dn-tag-row" id="dnTagRow">
-            <button class="dn-tag dn-tag--habit is-active" type="button" data-tag="habit">🏃 Habit</button>
-            <button class="dn-tag dn-tag--keuangan" type="button" data-tag="keuangan">💰 Keuangan</button>
-            <button class="dn-tag dn-tag--personal" type="button" data-tag="personal">💜 Personal</button>
-            <button class="dn-tag dn-tag--health" type="button" data-tag="health">❤️ Kesehatan</button>
+            <button
+              class="dn-tag dn-tag--habit is-active"
+              type="button"
+              data-tag="habit"
+            >
+              🏃 Habit
+            </button>
+            <button
+              class="dn-tag dn-tag--keuangan"
+              type="button"
+              data-tag="keuangan"
+            >
+              💰 Keuangan
+            </button>
+            <button
+              class="dn-tag dn-tag--personal"
+              type="button"
+              data-tag="personal"
+            >
+              💜 Personal
+            </button>
+            <button
+              class="dn-tag dn-tag--health"
+              type="button"
+              data-tag="health"
+            >
+              ❤️ Kesehatan
+            </button>
           </div>
           <textarea
             id="dnNoteInput"
             class="dn-note-input"
-            maxlength="300"
+            maxlength="1000"
             placeholder="Tulis catatan harianmu di sini… apa yang kamu rasakan, rencanakan, atau syukuri hari ini?"
           ></textarea>
           <div class="dn-note-footer">
-            <span class="dn-char-count"><span id="dnCharCount">0</span>/300 karakter</span>
-            <button id="dnSaveBtn" class="primary-btn" type="button">💾 Simpan</button>
+            <span class="dn-char-count"
+              ><span id="dnCharCount">0</span>/1000 karakter</span
+            >
+            <button id="dnSaveBtn" class="primary-btn" type="button">
+              💾 Simpan
+            </button>
           </div>
         </section>
 
@@ -474,8 +722,20 @@
           </div>
           <div class="dn-ring-wrap">
             <div class="dn-ring-container">
-              <svg width="120" height="120" viewBox="0 0 120 120" class="dn-ring-svg">
-                <circle cx="60" cy="60" r="46" fill="none" stroke="var(--line)" stroke-width="12" />
+              <svg
+                width="120"
+                height="120"
+                viewBox="0 0 120 120"
+                class="dn-ring-svg"
+              >
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="46"
+                  fill="none"
+                  stroke="var(--line)"
+                  stroke-width="12"
+                />
                 <circle
                   id="dnRingFill"
                   cx="60"
@@ -505,11 +765,25 @@
             <h2>Catatan Tersimpan</h2>
           </div>
           <div class="dn-filter-pills" id="dnFilterPills">
-            <button class="dn-filter-pill is-active" type="button" data-filter="semua">Semua</button>
-            <button class="dn-filter-pill" type="button" data-filter="habit">🏃 Habit</button>
-            <button class="dn-filter-pill" type="button" data-filter="keuangan">💰 Keuangan</button>
-            <button class="dn-filter-pill" type="button" data-filter="personal">💜 Personal</button>
-            <button class="dn-filter-pill" type="button" data-filter="health">❤️ Kesehatan</button>
+            <button
+              class="dn-filter-pill is-active"
+              type="button"
+              data-filter="semua"
+            >
+              Semua
+            </button>
+            <button class="dn-filter-pill" type="button" data-filter="habit">
+              🏃 Habit
+            </button>
+            <button class="dn-filter-pill" type="button" data-filter="keuangan">
+              💰 Keuangan
+            </button>
+            <button class="dn-filter-pill" type="button" data-filter="personal">
+              💜 Personal
+            </button>
+            <button class="dn-filter-pill" type="button" data-filter="health">
+              ❤️ Kesehatan
+            </button>
           </div>
           <div id="dnNotesList" class="dn-notes-list"></div>
           <div id="dnEmptyState" class="dn-empty" hidden>
@@ -536,13 +810,90 @@
               <div class="dn-summary-label">Catatan Hari Ini</div>
             </div>
             <div class="dn-summary-item">
-              <div class="dn-summary-value dn-mood-display" id="dnSummMood">—</div>
+              <div class="dn-summary-value dn-mood-display" id="dnSummMood">
+                —
+              </div>
               <div class="dn-summary-label">Mood Hari Ini</div>
             </div>
           </div>
           <button id="dnShareBtn" class="dn-share-btn" type="button">
             📤 Bagikan Ringkasan Hari Ini
           </button>
+        </section>
+      </div>
+
+      <!-- ==================== HALAMAN STATISTIK (ANALITIK) ==================== -->
+      <div class="page" id="page-stats" data-page="stats" hidden>
+        <!-- Insight otomatis -->
+        <section class="panel st-panel">
+          <div class="panel-head">
+            <h2>Insight Otomatis</h2>
+            <span id="stInsightPeriod" class="rab-today"></span>
+          </div>
+          <div id="stInsights" class="st-insights"></div>
+        </section>
+
+        <!-- Habit completion rate per minggu -->
+        <section class="panel st-panel">
+          <div class="panel-head">
+            <h2>Tingkat Penyelesaian Habit · per Minggu</h2>
+            <span id="stHabitAvg" class="rab-today"></span>
+          </div>
+          <div class="chart-wrap">
+            <svg
+              id="stHabitChart"
+              class="progress-chart"
+              viewBox="0 0 600 240"
+              preserveAspectRatio="xMidYMid meet"
+              role="img"
+              aria-label="Tingkat penyelesaian habit per minggu"
+            ></svg>
+          </div>
+        </section>
+
+        <!-- Pie chart distribusi pengeluaran -->
+        <section class="panel st-panel">
+          <div class="panel-head">
+            <h2>Distribusi Pengeluaran per Kategori</h2>
+            <span id="stPieTotal" class="rab-today"></span>
+          </div>
+          <div class="st-pie-wrap">
+            <div class="st-pie-container">
+              <svg
+                width="180"
+                height="180"
+                viewBox="0 0 180 180"
+                class="st-pie-svg"
+                id="stPieSvg"
+                role="img"
+                aria-label="Distribusi pengeluaran per kategori"
+              ></svg>
+              <div class="st-pie-center">
+                <span class="st-pie-total" id="stPieCenter">Rp0</span>
+                <span class="st-pie-sub">total bulan ini</span>
+              </div>
+            </div>
+            <div class="st-pie-legend" id="stPieLegend"></div>
+          </div>
+        </section>
+
+        <!-- Heatmap aktivitas 3 bulan -->
+        <section class="panel st-panel">
+          <div class="panel-head">
+            <h2>Heatmap Aktivitas · 3 Bulan Terakhir</h2>
+            <span id="stHeatActive" class="rab-today"></span>
+          </div>
+          <div class="st-heat-scroll">
+            <div class="st-heat-grid" id="stHeatGrid"></div>
+          </div>
+          <div class="dn-heatmap-legend">
+            <span>Sepi</span>
+            <i class="dn-legend-cell dn-l0"></i>
+            <i class="dn-legend-cell dn-l1"></i>
+            <i class="dn-legend-cell dn-l2"></i>
+            <i class="dn-legend-cell dn-l3"></i>
+            <span>Penuh</span>
+          </div>
         </section>
       </div>
 
@@ -697,6 +1048,226 @@
       </div>
     </div>
 
+    <!-- Modal: Tambah / Edit Target Tabungan -->
+    <div id="goalEditModal" class="modal-overlay goal-modal-overlay" hidden>
+      <div
+        class="goal-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goalModalTitle"
+      >
+        <div class="goal-sheet-grip"></div>
+        <div class="goal-sheet-head">
+          <h3 id="goalModalTitle">Tujuan Baru</h3>
+          <button
+            class="icon-btn"
+            type="button"
+            data-goal-close
+            aria-label="Tutup"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="goal-sheet-body">
+          <label class="goal-field">
+            <span class="goal-field-lbl">Nama Tujuan</span>
+            <input
+              id="goalFName"
+              type="text"
+              class="goal-input"
+              placeholder="Mis. Laptop Baru, Liburan Bali..."
+              maxlength="40"
+            />
+          </label>
+
+          <div class="goal-field">
+            <span class="goal-field-lbl">Pilih Ikon</span>
+            <div id="goalEmojiGrid" class="goal-emoji-grid"></div>
+          </div>
+
+          <div class="goal-field">
+            <span class="goal-field-lbl">Pilih Warna</span>
+            <div id="goalColorGrid" class="goal-color-grid"></div>
+          </div>
+
+          <div class="goal-field-row">
+            <label class="goal-field">
+              <span class="goal-field-lbl">Target (Rp)</span>
+              <input
+                id="goalFTarget"
+                type="number"
+                class="goal-input"
+                placeholder="1000000"
+                min="0"
+                inputmode="numeric"
+              />
+            </label>
+            <label class="goal-field">
+              <span class="goal-field-lbl">Sudah Ada (Rp)</span>
+              <input
+                id="goalFSaved"
+                type="number"
+                class="goal-input"
+                placeholder="0"
+                min="0"
+                inputmode="numeric"
+              />
+            </label>
+          </div>
+
+          <div class="goal-field-row">
+            <label class="goal-field">
+              <span class="goal-field-lbl">Deadline</span>
+              <input id="goalFDeadline" type="date" class="goal-input" />
+            </label>
+            <label class="goal-field">
+              <span class="goal-field-lbl">Prioritas</span>
+              <select id="goalFPriority" class="goal-input">
+                <option value="tinggi">🔴 Tinggi</option>
+                <option value="sedang" selected>🟡 Sedang</option>
+                <option value="rendah">🟢 Rendah</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="goal-field">
+            <span class="goal-field-lbl">Catatan (opsional)</span>
+            <input
+              id="goalFNote"
+              type="text"
+              class="goal-input"
+              placeholder="Mis. untuk kuliah, hadiah..."
+              maxlength="60"
+            />
+          </label>
+        </div>
+
+        <div class="goal-sheet-foot">
+          <button class="goal-btn-ghost" type="button" data-goal-close>
+            Batal
+          </button>
+          <button id="goalSaveBtn" class="goal-btn-primary" type="button">
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Setor ke Tujuan -->
+    <div id="goalDepositModal" class="modal-overlay goal-modal-overlay" hidden>
+      <div
+        class="goal-sheet goal-sheet--sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goalDepTitle"
+      >
+        <div class="goal-sheet-grip"></div>
+        <div class="goal-sheet-head">
+          <h3 id="goalDepTitle">Setor</h3>
+          <button
+            class="icon-btn"
+            type="button"
+            data-goal-close
+            aria-label="Tutup"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="goal-sheet-body">
+          <p id="goalDepRemain" class="goal-dep-remain"></p>
+          <div class="goal-dep-display" id="goalDepDisplay">Rp 0</div>
+
+          <input
+            id="goalDepAmount"
+            type="number"
+            class="goal-input goal-dep-input"
+            placeholder="Masukkan jumlah"
+            min="0"
+            inputmode="numeric"
+          />
+
+          <div id="goalDepChips" class="goal-dep-chips">
+            <button type="button" class="goal-chip" data-goal-chip="10000">
+              +10rb
+            </button>
+            <button type="button" class="goal-chip" data-goal-chip="25000">
+              +25rb
+            </button>
+            <button type="button" class="goal-chip" data-goal-chip="50000">
+              +50rb
+            </button>
+            <button type="button" class="goal-chip" data-goal-chip="100000">
+              +100rb
+            </button>
+            <button type="button" class="goal-chip" data-goal-chip="500000">
+              +500rb
+            </button>
+          </div>
+
+          <label class="goal-field">
+            <span class="goal-field-lbl">Catatan (opsional)</span>
+            <input
+              id="goalDepNote"
+              type="text"
+              class="goal-input"
+              placeholder="Mis. dari gaji, bonus..."
+              maxlength="60"
+            />
+          </label>
+        </div>
+
+        <div class="goal-sheet-foot">
+          <button class="goal-btn-ghost" type="button" data-goal-close>
+            Batal
+          </button>
+          <button id="goalDepDoBtn" class="goal-btn-primary" type="button">
+            💰 Setor Sekarang
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Riwayat Setoran -->
+    <div id="goalHistoryModal" class="modal-overlay goal-modal-overlay" hidden>
+      <div
+        class="goal-sheet goal-sheet--sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goalHistTitle"
+      >
+        <div class="goal-sheet-grip"></div>
+        <div class="goal-sheet-head">
+          <div>
+            <h3 id="goalHistTitle">Riwayat</h3>
+            <p id="goalHistSub" class="goal-hist-sub-top">0 setoran</p>
+          </div>
+          <button
+            class="icon-btn"
+            type="button"
+            data-goal-close
+            aria-label="Tutup"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="goal-sheet-body" id="goalHistBody"></div>
+
+        <div class="goal-sheet-foot">
+          <button class="goal-btn-primary goal-btn-full" type="button" data-goal-close>
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="reward-engine.js"></script>
+    <script src="notification-manager.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

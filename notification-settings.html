@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <title>Pengaturan Notifikasi</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#6c63ff" />
+    <style>
+      :root {
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --border: #e5e7eb;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --faint: #f3f4f6;
+        --green: #16a34a;
+        --green-bg: #dcfce7;
+        --green-border: #86efac;
+        --red: #dc2626;
+        --red-bg: #fee2e2;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --purple: #6c63ff;
+        --purple-bg: #ede9fe;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        padding-bottom: 24px;
+      }
+      .topbar {
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        padding: 14px 16px;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .back-btn {
+        font-size: 26px;
+        line-height: 1;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--muted);
+        text-decoration: none;
+      }
+      .topbar-title {
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .perm-banner {
+        margin: 12px;
+        border-radius: 14px;
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .perm-banner.granted {
+        background: var(--green-bg);
+        border: 1px solid var(--green-border);
+      }
+      .perm-banner.denied {
+        background: var(--red-bg);
+        border: 1px solid #fca5a5;
+      }
+      .perm-banner.default {
+        background: var(--amber-bg);
+        border: 1px solid #fcd34d;
+      }
+      .perm-icon {
+        font-size: 26px;
+        flex-shrink: 0;
+      }
+      .perm-text {
+        flex: 1;
+      }
+      .perm-title {
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .perm-desc {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+        line-height: 1.4;
+      }
+      .perm-btn {
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .perm-btn.ask {
+        background: var(--amber);
+        color: #fff;
+      }
+      .perm-btn.denied {
+        background: var(--muted);
+        color: #fff;
+      }
+
+      .section {
+        margin: 0 12px 20px;
+      }
+      .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--muted);
+        margin-bottom: 8px;
+        padding: 0 4px;
+      }
+
+      .toggle-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .toggle-row:last-child {
+        border-bottom: none;
+      }
+      .toggle-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+        background: var(--purple-bg);
+      }
+      .toggle-info {
+        flex: 1;
+      }
+      .toggle-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .toggle-desc {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+        line-height: 1.4;
+      }
+      .toggle-time {
+        font-size: 11px;
+        color: var(--purple);
+        font-weight: 600;
+        margin-top: 3px;
+      }
+
+      .switch {
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex-shrink: 0;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        inset: 0;
+        background: #d1d5db;
+        border-radius: 13px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .slider::before {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+        left: 3px;
+        top: 3px;
+        transition: transform 0.2s;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+      .switch input:checked + .slider {
+        background: var(--purple);
+      }
+      .switch input:checked + .slider::before {
+        transform: translateX(20px);
+      }
+      .switch input:disabled + .slider {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .time-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: var(--faint);
+        border-top: 1px solid var(--border);
+      }
+      .time-row label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .time-row input[type="time"] {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-size: 13px;
+        font-weight: 600;
+        background: var(--card);
+        color: var(--text);
+        outline: none;
+        cursor: pointer;
+      }
+      .time-row input[type="time"]:focus {
+        border-color: var(--purple);
+      }
+
+      .preview-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+      }
+      .preview-phone {
+        background: #1a1a2e;
+        border-radius: 16px;
+        padding: 12px;
+        max-width: 280px;
+        margin: 0 auto;
+      }
+      .notif-preview {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .notif-app-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--purple);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      .notif-content {
+        flex: 1;
+      }
+      .notif-app-name {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        margin-bottom: 2px;
+      }
+      .notif-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+      }
+      .notif-body {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.7);
+        margin-top: 2px;
+        line-height: 1.4;
+      }
+      .notif-time {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 4px;
+      }
+
+      .test-section {
+        margin: 0 12px 12px;
+      }
+      .test-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .test-btn {
+        padding: 12px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        cursor: pointer;
+        text-align: center;
+        transition:
+          background 0.15s,
+          transform 0.1s;
+      }
+      .test-btn:active {
+        transform: scale(0.97);
+        background: var(--faint);
+      }
+      .test-btn-icon {
+        font-size: 22px;
+        margin-bottom: 4px;
+      }
+      .test-btn-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .test-btn-desc {
+        font-size: 10px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .spacer {
+        height: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <a class="back-btn" href="index.html" aria-label="Kembali">‹</a>
+      <div class="topbar-title">🔔 Pengaturan Notifikasi</div>
+    </div>
+
+    <!-- BANNER STATUS IZIN -->
+    <div id="perm-banner" class="perm-banner default" style="display: none">
+      <div class="perm-icon" id="perm-icon">⏳</div>
+      <div class="perm-text">
+        <div class="perm-title" id="perm-title">Izin Belum Diminta</div>
+        <div class="perm-desc" id="perm-desc">
+          Aktifkan notifikasi agar app bisa mengingatkan habit dan anggaran
+          kamu.
+        </div>
+      </div>
+      <button class="perm-btn ask" id="perm-action-btn" onclick="askPermission()">
+        Aktifkan
+      </button>
+    </div>
+
+    <!-- JADWAL PENGINGAT -->
+    <div class="section" style="margin-top: 4px">
+      <div class="section-title">Jadwal Pengingat</div>
+      <div class="toggle-card">
+        <div class="toggle-row">
+          <div class="toggle-icon">☀️</div>
+          <div class="toggle-info">
+            <div class="toggle-label">Pengingat Pagi</div>
+            <div class="toggle-desc">Ingatkan habit yang belum selesai.</div>
+            <div class="toggle-time" id="morning-time-label">📍 Jam 07:00</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-morning" onchange="toggle('morning', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="time-row" id="morning-time-row">
+          <label for="morning-time">Waktu pengingat pagi</label>
+          <input type="time" id="morning-time" value="07:00" onchange="updateTime('morning', this.value)" />
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-icon">🌙</div>
+          <div class="toggle-info">
+            <div class="toggle-label">Recap Malam</div>
+            <div class="toggle-desc">Cek habit & isi catatan harian.</div>
+            <div class="toggle-time" id="evening-time-label">📍 Jam 21:00</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-evening" onchange="toggle('evening', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="time-row" id="evening-time-row">
+          <label for="evening-time">Waktu recap malam</label>
+          <input type="time" id="evening-time" value="21:00" onchange="updateTime('evening', this.value)" />
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-icon">🔥</div>
+          <div class="toggle-info">
+            <div class="toggle-label">Peringatan Streak</div>
+            <div class="toggle-desc">
+              Notif jam 23:00 jika streak mau putus.
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-streak" onchange="toggle('streak', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFIKASI INSTAN -->
+    <div class="section">
+      <div class="section-title">Notifikasi Instan</div>
+      <div class="toggle-card">
+        <div class="toggle-row">
+          <div class="toggle-icon">💰</div>
+          <div class="toggle-info">
+            <div class="toggle-label">Peringatan Anggaran</div>
+            <div class="toggle-desc">
+              Alert saat pengeluaran mendekati 80% anggaran.
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-budget" onchange="toggle('budget', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-icon">✅</div>
+          <div class="toggle-info">
+            <div class="toggle-label">Habit Selesai</div>
+            <div class="toggle-desc">
+              Notif setiap habit dicentang (default mati).
+            </div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-habitDone" onchange="toggle('habitDone', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="section">
+      <div class="section-title">Preview</div>
+      <div class="preview-card">
+        <div class="preview-phone">
+          <div class="notif-preview">
+            <div class="notif-app-icon">🌿</div>
+            <div class="notif-content">
+              <div class="notif-app-name">Habit Builder</div>
+              <div class="notif-title" id="preview-title">☀️ Selamat Pagi!</div>
+              <div class="notif-body" id="preview-body">
+                3 dari 8 habit belum selesai hari ini. Ayo mulai!
+              </div>
+              <div class="notif-time">sekarang</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEST -->
+    <div class="test-section">
+      <div class="section-title">Coba Notifikasi</div>
+      <div class="test-grid">
+        <button class="test-btn" onclick="testNotif('morning')">
+          <div class="test-btn-icon">☀️</div>
+          <div class="test-btn-label">Pagi</div>
+          <div class="test-btn-desc">Pengingat habit</div>
+        </button>
+        <button class="test-btn" onclick="testNotif('evening')">
+          <div class="test-btn-icon">🌙</div>
+          <div class="test-btn-label">Malam</div>
+          <div class="test-btn-desc">Recap harian</div>
+        </button>
+        <button class="test-btn" onclick="testNotif('streak')">
+          <div class="test-btn-icon">🔥</div>
+          <div class="test-btn-label">Streak</div>
+          <div class="test-btn-desc">Hampir putus</div>
+        </button>
+        <button class="test-btn" onclick="testNotif('budget')">
+          <div class="test-btn-icon">💰</div>
+          <div class="test-btn-label">Budget</div>
+          <div class="test-btn-desc">Anggaran 80%</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <script src="notification-manager.js"></script>
+    <script>
+      const PREVIEWS = {
+        morning: {
+          title: "☀️ Selamat Pagi!",
+          body: "3 dari 8 habit belum selesai hari ini. Ayo mulai!",
+        },
+        evening: {
+          title: "🌙 Malam — Recap",
+          body: "Masih ada 2 habit belum selesai. Belum ada catatan hari ini.",
+        },
+        streak: {
+          title: "🔥 Streak 7 hari mau putus!",
+          body: "Selesaikan 2 habit lagi sebelum tengah malam!",
+        },
+        budget: {
+          title: "⚠️ Anggaran Jajan hampir habis",
+          body: "Sudah 85% dari Rp100.000. Hati-hati!",
+        },
+      };
+
+      const TEST_NOTIFS = {
+        morning: {
+          title: "☀️ Selamat Pagi!",
+          body: "Ini test notifikasi pengingat pagi dari Habit Builder.",
+        },
+        evening: {
+          title: "🌙 Recap Malam",
+          body: "Ini test notifikasi recap malam. Jangan lupa isi catatan!",
+        },
+        streak: {
+          title: "🔥 Streak hampir putus!",
+          body: "Ini test notifikasi peringatan streak jam 23:00.",
+        },
+        budget: {
+          title: "⚠️ Anggaran hampir habis",
+          body: "Ini test notifikasi peringatan budget 80%.",
+        },
+      };
+
+      function updateBanner() {
+        const supported = "Notification" in window;
+        const perm = supported ? Notification.permission : "denied";
+        const banner = document.getElementById("perm-banner");
+        const icon = document.getElementById("perm-icon");
+        const title = document.getElementById("perm-title");
+        const desc = document.getElementById("perm-desc");
+        const btn = document.getElementById("perm-action-btn");
+
+        banner.style.display = "";
+        banner.className = "perm-banner " + perm;
+
+        if (!supported) {
+          banner.className = "perm-banner denied";
+          icon.textContent = "🚫";
+          title.textContent = "Tidak Didukung";
+          desc.textContent = "Browser ini tidak mendukung notifikasi.";
+          btn.style.display = "none";
+          return;
+        }
+
+        if (perm === "granted") {
+          icon.textContent = "✅";
+          title.textContent = "Notifikasi Aktif";
+          desc.textContent = "Kamu akan menerima pengingat sesuai pengaturan di bawah.";
+          btn.style.display = "none";
+        } else if (perm === "denied") {
+          icon.textContent = "❌";
+          title.textContent = "Notifikasi Diblokir";
+          desc.textContent = "Izin diblokir di browser. Aktifkan lewat ikon kunci di address bar.";
+          btn.style.display = "";
+          btn.className = "perm-btn denied";
+          btn.textContent = "Cara aktifkan";
+          btn.onclick = () =>
+            alert("Klik ikon 🔒 di address bar → Notifications → Allow");
+        } else {
+          icon.textContent = "⏳";
+          title.textContent = "Izin Belum Diminta";
+          desc.textContent = "Aktifkan notifikasi agar app bisa mengingatkan habit & anggaran kamu.";
+          btn.style.display = "";
+          btn.className = "perm-btn ask";
+          btn.textContent = "Aktifkan";
+          btn.onclick = askPermission;
+        }
+      }
+
+      async function askPermission() {
+        const ok = await NotifManager.requestPermission();
+        updateBanner();
+        if (ok) loadToggles();
+      }
+
+      function loadToggles() {
+        const s = NotifManager.loadSettings();
+        const perm =
+          "Notification" in window && Notification.permission === "granted";
+        Object.keys(s).forEach((key) => {
+          const el = document.getElementById(`notif-${key}`);
+          if (el) {
+            el.checked = s[key];
+            el.disabled = !perm;
+          }
+        });
+      }
+
+      async function toggle(key, val) {
+        const ok = await NotifManager.toggleSetting(key, val);
+        if (!ok) {
+          const el = document.getElementById(`notif-${key}`);
+          if (el) el.checked = false;
+          updateBanner();
+        }
+      }
+
+      function loadTimes() {
+        ["morning", "evening"].forEach((period) => {
+          try {
+            const t = JSON.parse(localStorage.getItem(`notifTime_${period}`));
+            if (t && typeof t.hour === "number") {
+              const hh = String(t.hour).padStart(2, "0");
+              const mm = String(t.minute || 0).padStart(2, "0");
+              const input = document.getElementById(`${period}-time`);
+              const label = document.getElementById(`${period}-time-label`);
+              if (input) input.value = `${hh}:${mm}`;
+              if (label) label.textContent = `📍 Jam ${hh}:${mm}`;
+            }
+          } catch (e) {}
+        });
+      }
+
+      function updateTime(period, val) {
+        const [h, m] = val.split(":");
+        const label = document.getElementById(`${period}-time-label`);
+        if (label) label.textContent = `📍 Jam ${val}`;
+        localStorage.setItem(
+          `notifTime_${period}`,
+          JSON.stringify({ hour: parseInt(h, 10), minute: parseInt(m, 10) }),
+        );
+        // Jadwalkan ulang dengan menyalakan ulang toggle terkait
+        NotifManager.toggleSetting(period, true);
+      }
+
+      async function testNotif(type) {
+        const ok = await NotifManager.requestPermission();
+        if (!ok) {
+          alert("Aktifkan izin notifikasi dulu!");
+          return;
+        }
+        const n = TEST_NOTIFS[type];
+        await NotifManager.sendLocal(n.title, n.body, {
+          notifType: type === "budget" ? "budget" : type === "streak" ? "streak" : "habit",
+          tag: `test-${type}`,
+          url: "./",
+        });
+        const p = PREVIEWS[type];
+        document.getElementById("preview-title").textContent = p.title;
+        document.getElementById("preview-body").textContent = p.body;
+      }
+
+      // Daftarkan service worker (agar SHOW_NOTIF berfungsi di halaman ini)
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("service-worker.js").catch(() => {});
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        updateBanner();
+        loadToggles();
+        loadTimes();
+        await NotifManager.init();
+      });
+    </script>
+  </body>
+</html>

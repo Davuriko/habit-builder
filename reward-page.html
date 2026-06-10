@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111111" />
+    <title>Reward & Pencapaian</title>
+    <style>
+      :root {
+        --bg: #f5f7fa;
+        --card: #ffffff;
+        --border: #e5e7eb;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --faint: #f3f4f6;
+        --accent: #6c63ff;
+        --accent-light: #ede9fe;
+        --green: #16a34a;
+        --green-light: #dcfce7;
+        --amber: #b45309;
+        --amber-light: #fef3c7;
+      }
+      [data-theme="dark"] {
+        --bg: #0f1117;
+        --card: #1a1d27;
+        --border: #2a2f3c;
+        --text: #f1f3f8;
+        --muted: #9aa3b2;
+        --faint: #232734;
+        --accent: #8b80ff;
+        --accent-light: #2a2550;
+        --green: #4ade80;
+        --green-light: #14321f;
+        --amber: #fbbf24;
+        --amber-light: #3a2e10;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      /* TOP BAR */
+      .topbar {
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        padding: 14px 16px 10px;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .topbar-back {
+        font-size: 26px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--muted);
+        padding: 0 8px;
+        line-height: 1;
+      }
+      .topbar-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .topbar-pts {
+        font-size: 13px;
+        font-weight: 700;
+        background: var(--accent-light);
+        color: var(--accent);
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+
+      /* HERO LEVEL */
+      .hero {
+        background: var(--card);
+        padding: 20px 16px 16px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 12px;
+      }
+      .hero-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .level-orb {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--accent-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        flex-shrink: 0;
+        border: 3px solid var(--accent);
+      }
+      .hero-info {
+        flex: 1;
+      }
+      .level-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      .level-name {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+        margin: 2px 0 8px;
+      }
+      .progress-track {
+        height: 8px;
+        background: var(--faint);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--accent);
+        transition: width 1s ease;
+      }
+      .progress-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      /* STATS ROW */
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin: 12px 16px 0;
+      }
+      .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 10px;
+        text-align: center;
+      }
+      .stat-val {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .stat-lbl {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      /* SECTION */
+      .section {
+        margin: 16px 16px 0;
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .section-count {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* BADGE GRID */
+      .badge-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .badge-item {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 6px;
+        text-align: center;
+        transition: transform 0.15s;
+        position: relative;
+      }
+      .badge-item.earned {
+        border-color: #c4b5fd;
+        background: var(--accent-light);
+      }
+      .badge-item:not(.earned) {
+        opacity: 0.45;
+        filter: grayscale(1);
+      }
+      .badge-icon {
+        font-size: 26px;
+        line-height: 1.2;
+      }
+      .badge-name {
+        font-size: 9px;
+        color: var(--muted);
+        margin-top: 4px;
+        line-height: 1.3;
+      }
+      .badge-item.earned .badge-name {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* CATEGORY TABS */
+      .cat-tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        margin-bottom: 12px;
+        scrollbar-width: none;
+      }
+      .cat-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .cat-tab {
+        padding: 5px 13px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1.5px solid var(--border);
+        background: var(--card);
+        cursor: pointer;
+        white-space: nowrap;
+        color: var(--muted);
+        transition: all 0.15s;
+      }
+      .cat-tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      /* POINT LOG */
+      .log-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .log-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .log-item:last-child {
+        border-bottom: none;
+      }
+      .log-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex-shrink: 0;
+      }
+      .log-reason {
+        flex: 1;
+        font-size: 13px;
+        color: var(--text);
+      }
+      .log-date {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .log-pts {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--green);
+      }
+
+      /* NEXT BADGE */
+      .next-badge-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .next-badge-icon {
+        font-size: 28px;
+      }
+      .next-badge-info {
+        flex: 1;
+      }
+      .next-badge-name {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .next-badge-desc {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .next-badge-prog {
+        margin-top: 8px;
+      }
+      .next-prog-track {
+        height: 5px;
+        background: var(--faint);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .next-prog-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--accent);
+        transition: width 0.8s ease;
+      }
+      .next-prog-label {
+        font-size: 10px;
+        color: var(--muted);
+        margin-top: 3px;
+        text-align: right;
+      }
+
+      .spacer {
+        height: 32px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <button class="topbar-back" onclick="goBack()" aria-label="Kembali">
+        ‹
+      </button>
+      <div class="topbar-title">Reward & Pencapaian</div>
+      <div class="topbar-pts" id="rw-total-points">0 pts</div>
+    </div>
+
+    <!-- HERO: LEVEL -->
+    <div class="hero">
+      <div class="hero-row">
+        <div class="level-orb" id="lvl-orb">🌱</div>
+        <div class="hero-info">
+          <div class="level-label">Level kamu sekarang</div>
+          <div class="level-name" id="lvl-name">Pemula</div>
+          <div class="progress-track">
+            <div
+              class="progress-fill"
+              id="rw-progress-bar"
+              style="width: 0%"
+            ></div>
+          </div>
+          <div class="progress-labels">
+            <span id="lvl-cur-pts">0 pts</span>
+            <span id="lvl-next-name">→ Konsisten (200 pts)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" style="color: #6c63ff" id="stat-streak">0</div>
+        <div class="stat-lbl">🔥 Streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color: #16a34a" id="stat-perfect">0</div>
+        <div class="stat-lbl">⭐ Hari Sempurna</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color: #b45309" id="stat-badges">0</div>
+        <div class="stat-lbl">🏅 Badge</div>
+      </div>
+    </div>
+
+    <!-- BADGE SECTION -->
+    <div class="section" style="margin-top: 20px">
+      <div class="section-head">
+        <div class="section-title">Koleksi Badge</div>
+        <div class="section-count" id="badge-count-label">0 / 0 badge</div>
+      </div>
+      <div class="cat-tabs" id="cat-tabs">
+        <button class="cat-tab active" onclick="filterBadges('semua', this)">
+          Semua
+        </button>
+        <button class="cat-tab" onclick="filterBadges('streak', this)">
+          🔥 Streak
+        </button>
+        <button class="cat-tab" onclick="filterBadges('habit', this)">
+          ⭐ Habit
+        </button>
+        <button class="cat-tab" onclick="filterBadges('catatan', this)">
+          📝 Catatan
+        </button>
+        <button class="cat-tab" onclick="filterBadges('keuangan', this)">
+          💰 Keuangan
+        </button>
+        <button class="cat-tab" onclick="filterBadges('level', this)">
+          🏆 Level
+        </button>
+      </div>
+      <div class="badge-grid" id="badge-grid"></div>
+    </div>
+
+    <!-- BADGE BERIKUTNYA -->
+    <div class="section" style="margin-top: 20px">
+      <div class="section-head">
+        <div class="section-title">Hampir Terbuka</div>
+      </div>
+      <div id="next-badges-list"></div>
+    </div>
+
+    <!-- RIWAYAT POIN -->
+    <div class="section" style="margin-top: 20px">
+      <div class="section-head">
+        <div class="section-title">Riwayat Poin</div>
+        <div class="section-count" id="log-count"></div>
+      </div>
+      <div class="log-list" id="point-log"></div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <script src="reward-engine.js"></script>
+    <script>
+      // Ikuti tema yang dipilih di aplikasi utama.
+      try {
+        const t = localStorage.getItem("habitBuilder.theme");
+        if (t === "dark")
+          document.documentElement.setAttribute("data-theme", "dark");
+      } catch (e) {}
+
+      function goBack() {
+        if (document.referrer) history.back();
+        else window.location.href = "index.html";
+      }
+
+      let currentFilter = "semua";
+
+      function renderPage() {
+        const lvl = RewardEngine.getCurrentLevel();
+        const stats = RewardEngine.getStats();
+        const allBadges = RewardEngine.getAllBadges();
+
+        // ── Level ──
+        document.getElementById("rw-total-points").textContent =
+          lvl.totalPoints.toLocaleString("id-ID") + " pts";
+        document.getElementById("lvl-orb").textContent = lvl.icon;
+        document.getElementById("lvl-name").textContent = lvl.name;
+        document.getElementById("rw-progress-bar").style.width =
+          lvl.progress + "%";
+        document.getElementById("lvl-cur-pts").textContent =
+          lvl.totalPoints.toLocaleString("id-ID") + " pts";
+        if (lvl.nextLevel) {
+          document.getElementById("lvl-next-name").textContent =
+            `→ ${lvl.nextLevel.name} (${lvl.nextLevel.minPts.toLocaleString("id-ID")} pts)`;
+        } else {
+          document.getElementById("lvl-next-name").textContent =
+            "Level Maksimum!";
+        }
+
+        // ── Stats ──
+        document.getElementById("stat-streak").textContent =
+          stats.currentStreak;
+        document.getElementById("stat-perfect").textContent = stats.perfectDays;
+        document.getElementById("stat-badges").textContent =
+          stats.earnedBadges.length;
+
+        // ── Badges ──
+        renderBadges(allBadges, currentFilter);
+        const earned = allBadges.filter((b) => b.earned).length;
+        document.getElementById("badge-count-label").textContent =
+          `${earned} / ${allBadges.length} badge`;
+
+        // ── Next Badges ──
+        renderNextBadges(stats);
+
+        // ── Point Log ──
+        const log = stats.pointLog || [];
+        document.getElementById("log-count").textContent =
+          log.length + " entri";
+        document.getElementById("point-log").innerHTML =
+          log.length === 0
+            ? `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">Belum ada aktivitas. Centang habit pertamamu!</div>`
+            : log
+                .slice(0, 20)
+                .map(
+                  (l) => `
+                  <div class="log-item">
+                    <div class="log-dot"></div>
+                    <div class="log-reason">${l.reason}</div>
+                    <div class="log-date">${l.date}</div>
+                    <div class="log-pts">+${l.amount}</div>
+                  </div>`,
+                )
+                .join("");
+      }
+
+      function renderBadges(allBadges, filter) {
+        const filtered =
+          filter === "semua"
+            ? allBadges
+            : allBadges.filter((b) => b.cat === filter);
+        document.getElementById("badge-grid").innerHTML = filtered
+          .map(
+            (b) => `
+            <div class="badge-item ${b.earned ? "earned" : ""}" title="${b.desc}">
+              <div class="badge-icon">${b.icon}</div>
+              <div class="badge-name">${b.name}</div>
+            </div>`,
+          )
+          .join("");
+      }
+
+      function filterBadges(cat, btn) {
+        currentFilter = cat;
+        document
+          .querySelectorAll(".cat-tab")
+          .forEach((t) => t.classList.remove("active"));
+        btn.classList.add("active");
+        renderBadges(RewardEngine.getAllBadges(), cat);
+      }
+
+      function renderNextBadges(stats) {
+        const allBadges = RewardEngine.getAllBadges();
+        const unearned = allBadges.filter((b) => !b.earned);
+
+        const withProgress = unearned
+          .map((b) => {
+            let cur = 0,
+              target = 1,
+              label = "";
+            switch (b.id) {
+              case "streak_3":
+                cur = stats.currentStreak;
+                target = 3;
+                label = `${cur}/3 hari streak`;
+                break;
+              case "streak_7":
+                cur = stats.currentStreak;
+                target = 7;
+                label = `${cur}/7 hari streak`;
+                break;
+              case "streak_14":
+                cur = stats.currentStreak;
+                target = 14;
+                label = `${cur}/14 hari`;
+                break;
+              case "streak_30":
+                cur = stats.currentStreak;
+                target = 30;
+                label = `${cur}/30 hari`;
+                break;
+              case "streak_100":
+                cur = stats.currentStreak;
+                target = 100;
+                label = `${cur}/100 hari`;
+                break;
+              case "perfect_1":
+                cur = stats.perfectDays;
+                target = 1;
+                label = `${cur}/1 hari sempurna`;
+                break;
+              case "perfect_7":
+                cur = stats.perfectDays;
+                target = 7;
+                label = `${cur}/7 hari sempurna`;
+                break;
+              case "perfect_30":
+                cur = stats.perfectDays;
+                target = 30;
+                label = `${cur}/30 hari`;
+                break;
+              case "habit_50":
+                cur = stats.totalChecks;
+                target = 50;
+                label = `${cur}/50 habit`;
+                break;
+              case "habit_200":
+                cur = stats.totalChecks;
+                target = 200;
+                label = `${cur}/200 habit`;
+                break;
+              case "note_1":
+                cur = stats.totalNotes;
+                target = 1;
+                label = `${cur}/1 catatan`;
+                break;
+              case "note_10":
+                cur = stats.totalNotes;
+                target = 10;
+                label = `${cur}/10 catatan`;
+                break;
+              case "note_50":
+                cur = stats.totalNotes;
+                target = 50;
+                label = `${cur}/50 catatan`;
+                break;
+              case "note_100":
+                cur = stats.totalNotes;
+                target = 100;
+                label = `${cur}/100 catatan`;
+                break;
+              case "saver_1":
+                cur = stats.savingDays;
+                target = 1;
+                label = `${cur}/1 hari nabung`;
+                break;
+              case "saver_7":
+                cur = stats.savingDays;
+                target = 7;
+                label = `${cur}/7 hari nabung`;
+                break;
+              case "saver_30":
+                cur = stats.savingDays;
+                target = 30;
+                label = `${cur}/30 hari`;
+                break;
+              case "pts_100":
+                cur = stats.totalPoints;
+                target = 100;
+                label = `${cur}/100 pts`;
+                break;
+              case "pts_500":
+                cur = stats.totalPoints;
+                target = 500;
+                label = `${cur}/500 pts`;
+                break;
+              case "pts_1000":
+                cur = stats.totalPoints;
+                target = 1000;
+                label = `${cur}/1.000 pts`;
+                break;
+              case "pts_5000":
+                cur = stats.totalPoints;
+                target = 5000;
+                label = `${cur}/5.000 pts`;
+                break;
+              default:
+                cur = 0;
+                target = 1;
+                label = "";
+            }
+            const pct = Math.min(100, Math.round((cur / target) * 100));
+            return { ...b, cur, target, pct, label };
+          })
+          .filter((b) => b.pct > 0)
+          .sort((a, b) => b.pct - a.pct)
+          .slice(0, 4);
+
+        const container = document.getElementById("next-badges-list");
+        if (withProgress.length === 0) {
+          container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">
+            Mulai centang habit untuk melihat progres badge!
+          </div>`;
+          return;
+        }
+
+        container.innerHTML = withProgress
+          .map(
+            (b) => `
+            <div class="next-badge-card">
+              <div class="next-badge-icon">${b.icon}</div>
+              <div class="next-badge-info">
+                <div class="next-badge-name">${b.name}</div>
+                <div class="next-badge-desc">${b.desc}</div>
+                <div class="next-badge-prog">
+                  <div class="next-prog-track">
+                    <div class="next-prog-fill" style="width:${b.pct}%"></div>
+                  </div>
+                  <div class="next-prog-label">${b.label}</div>
+                </div>
+              </div>
+            </div>`,
+          )
+          .join("");
+      }
+
+      renderPage();
+    </script>
+  </body>
+</html>

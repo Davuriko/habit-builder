@@ -121,6 +121,18 @@
     if (!Array.isArray(s.notes)) s.notes = [];
     // moods["YYYY-M-D"] = { mood: 1..5, emoji }
     if (!s.moods || typeof s.moods !== "object") s.moods = {};
+
+    // Target Tabungan: tujuan keuangan dengan progress bar
+    // goals[] = { id, name, icon, color, target, saved, deadline, priority,
+    //             note, dailySavings, deposits[], createdAt }
+    if (!Array.isArray(s.goals)) s.goals = [];
+    s.goals.forEach((g) => {
+      if (!Array.isArray(g.deposits)) g.deposits = [];
+      if (typeof g.saved !== "number" || !isFinite(g.saved)) g.saved = 0;
+      if (typeof g.target !== "number" || !isFinite(g.target)) g.target = 0;
+      if (typeof g.dailySavings !== "number" || !isFinite(g.dailySavings))
+        g.dailySavings = 0;
+    });
     return s;
   }
 
@@ -157,8 +169,50 @@
     const mc = getMonthChecks();
     if (!mc[habitId]) mc[habitId] = {};
     if (mc[habitId][day]) delete mc[habitId][day];
-    else mc[habitId][day] = true;
+    else {
+      mc[habitId][day] = true;
+      rewardHabitChecked(habitId);
+      notifyHabitChecked(habitId, day);
+    }
     save();
+  }
+
+  // Beri reward saat sebuah habit dicentang (hanya saat dinyalakan).
+  function rewardHabitChecked(habitId) {
+    if (typeof RewardEngine === "undefined") return;
+    try {
+      RewardEngine.onHabitChecked(habitId, state.habits);
+      const total = state.habits.length;
+      const done = dnHabitsDoneToday();
+      RewardEngine.onDayComplete(done, total);
+    } catch (e) {}
+  }
+
+  // Kirim notifikasi instan saat habit dicentang (hanya untuk centang HARI INI).
+  function notifyHabitChecked(habitId, day) {
+    if (typeof NotifManager === "undefined") return;
+    const t = new Date();
+    if (
+      view.year !== t.getFullYear() ||
+      view.month !== t.getMonth() ||
+      day !== t.getDate()
+    ) {
+      return;
+    }
+    try {
+      const habit = state.habits.find((h) => h.id === habitId);
+      const name = habit ? habit.name : "Habit";
+      let streak = 0;
+      try {
+        streak =
+          JSON.parse(localStorage.getItem("rewardData_v1") || "{}")
+            .currentStreak || 0;
+      } catch (e) {}
+      NotifManager.notifyHabitDone(name, streak);
+      const total = state.habits.length;
+      const done = dnHabitsDoneToday();
+      if (done === total && total > 0) NotifManager.notifyAllDone(total);
+    } catch (e) {}
   }
 
   // ---------- Catch-up (progres kemarin) helpers ----------
@@ -307,6 +361,35 @@
     day[id] = Math.max(0, (day[id] || 0) + amount);
     save();
     renderFinance();
+    rewardCheckSaving();
+    notifyBudgetCheck(id);
+  }
+
+  // Cek apakah pengeluaran kategori hari ini mendekati / melewati anggaran
+  // harian, lalu kirim notifikasi (digate oleh setelan "budget").
+  function notifyBudgetCheck(catId) {
+    if (typeof NotifManager === "undefined") return;
+    const cat = state.budget.cats.find((c) => c.id === catId);
+    if (!cat || !cat.daily) return;
+    try {
+      const spentToday = spentOn(cat.id, todayKey());
+      NotifManager.checkBudget(spentToday, cat.daily, cat.name);
+    } catch (e) {}
+  }
+
+  // Beri reward "Ada tabungan hari ini" bila total anggaran harian masih
+  // melebihi pengeluaran hari ini (artinya hemat). Engine dedup per tanggal.
+  function rewardCheckSaving() {
+    if (typeof RewardEngine === "undefined") return;
+    let leftover = 0;
+    state.budget.cats.forEach((c) => {
+      leftover += remainingToday(c);
+    });
+    if (leftover > 0) {
+      try {
+        RewardEngine.onMoneySaved(leftover);
+      } catch (e) {}
+    }
   }
 
   function resetCatToday(id) {
@@ -336,10 +419,7 @@
 
   // Total anggaran bulanan semua kategori.
   function monthlyBudgetTotal() {
-    return state.budget.cats.reduce(
-      (s, c) => s + (Number(c.monthly) || 0),
-      0,
-    );
+    return state.budget.cats.reduce((s, c) => s + (Number(c.monthly) || 0), 0);
   }
 
   // ---------- Pemasukan tak terduga (extra income) ----------
@@ -412,6 +492,14 @@
     renderFinance();
     renderProgressLog();
     renderNotesPage();
+    // Refresh statistik hanya bila halamannya sedang terbuka.
+    const stPage = el("page-stats");
+    if (stPage && !stPage.hidden) renderStatsPage();
+    if (typeof RewardEngine !== "undefined") {
+      try {
+        RewardEngine.refresh();
+      } catch (e) {}
+    }
   }
 
   // Render seluruh komponen halaman keuangan.
@@ -424,6 +512,7 @@
     renderAlerts();
     renderIncomeModal();
     renderExpenseModal();
+    renderGoals();
   }
 
   function renderMonthTitle() {
@@ -1045,7 +1134,8 @@
 
     const bar = el("budgetUsedBar");
     if (bar) {
-      const pct = budgetTotal > 0 ? Math.min(100, (used / budgetTotal) * 100) : 0;
+      const pct =
+        budgetTotal > 0 ? Math.min(100, (used / budgetTotal) * 100) : 0;
       bar.style.width = pct + "%";
       bar.style.background =
         pct >= ALERT_NEAR_PCT
@@ -1154,8 +1244,7 @@
     const total = daysInMonth(y, m);
     const firstWd = new Date(y, m, 1).getDay();
     const today = new Date();
-    const isCurMonth =
-      today.getFullYear() === y && today.getMonth() === m;
+    const isCurMonth = today.getFullYear() === y && today.getMonth() === m;
     const todayD = today.getDate();
     const todayStart = todayStartTime();
 
@@ -1225,7 +1314,8 @@
   // Format ringkas: 12rb, 1,5jt
   function compactRp(n) {
     const v = Math.abs(n);
-    if (v >= 1e6) return (v / 1e6).toFixed(v % 1e6 === 0 ? 0 : 1).replace(".", ",") + "jt";
+    if (v >= 1e6)
+      return (v / 1e6).toFixed(v % 1e6 === 0 ? 0 : 1).replace(".", ",") + "jt";
     if (v >= 1e3) return Math.round(v / 1e3) + "rb";
     return String(v);
   }
@@ -1337,7 +1427,11 @@
         value: formatRp(net),
         cls: net < 0 ? "neg" : "pos",
       },
-      { label: "Rata-rata / Hari", value: formatRp(Math.round(avgDaily)), cls: "" },
+      {
+        label: "Rata-rata / Hari",
+        value: formatRp(Math.round(avgDaily)),
+        cls: "",
+      },
     ];
     statCards.forEach((sc) => {
       const c = document.createElement("div");
@@ -1501,7 +1595,12 @@
     // Garis tren (hanya sampai hari ini).
     let pathD = "";
     for (let d = 1; d <= daysElapsed; d++) {
-      pathD += (d === 1 ? "M" : "L") + xFor(d).toFixed(1) + " " + yFor(vals[d]).toFixed(1) + " ";
+      pathD +=
+        (d === 1 ? "M" : "L") +
+        xFor(d).toFixed(1) +
+        " " +
+        yFor(vals[d]).toFixed(1) +
+        " ";
     }
     const path = document.createElementNS(ns, "path");
     path.setAttribute("d", pathD.trim());
@@ -1731,7 +1830,7 @@
       p.classList.toggle("is-active", active);
       p.hidden = !active;
     });
-    document.querySelectorAll(".page-tab").forEach((t) => {
+    document.querySelectorAll(".nav-item").forEach((t) => {
       const active = t.dataset.page === name;
       t.classList.toggle("is-active", active);
       t.setAttribute("aria-selected", active ? "true" : "false");
@@ -1739,7 +1838,19 @@
     try {
       localStorage.setItem("habitBuilder.page", name);
     } catch (e) {}
+    if (name === "stats") renderStatsPage();
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Buka halaman Catatan & langsung fokus ke kolom tulis (tombol pensil).
+  function quickNote() {
+    switchPage("notes");
+    const input = el("dnNoteInput");
+    if (!input) return;
+    setTimeout(() => {
+      input.focus();
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   }
 
   // ==================== DAILY NOTES ====================
@@ -1824,6 +1935,11 @@
     input.value = "";
     renderNotesPage();
     showToast("✅ Catatan tersimpan!");
+    if (typeof RewardEngine !== "undefined") {
+      try {
+        RewardEngine.onNoteSaved();
+      } catch (e) {}
+    }
   }
 
   function dnDeleteNote(id) {
@@ -2045,9 +2161,7 @@
   function dnShareSummary() {
     const text = dnBuildShareText();
     if (navigator.share) {
-      navigator
-        .share({ title: "Ringkasan Harian", text })
-        .catch(() => {});
+      navigator.share({ title: "Ringkasan Harian", text }).catch(() => {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -2086,6 +2200,420 @@
     dnRenderRing();
     dnRenderNotesList();
     dnRenderSummary();
+  }
+
+  // ==================== STATISTIK / ANALITIK ====================
+  const ST_NS = "http://www.w3.org/2000/svg";
+  function stMk(name, attrs, cls) {
+    const e = document.createElementNS(ST_NS, name);
+    if (cls) e.setAttribute("class", cls);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // Jumlah habit yang dicentang pada tanggal tertentu.
+  function habitDoneOnDate(y, m, d) {
+    const mc = state.checks[`${y}-${m}`];
+    if (!mc) return 0;
+    let done = 0;
+    state.habits.forEach((h) => {
+      if (mc[h.id] && mc[h.id][d]) done++;
+    });
+    return done;
+  }
+
+  // Rasio penyelesaian (0..1) pada satu tanggal.
+  function habitRatioOnDate(y, m, d) {
+    const n = state.habits.length;
+    if (!n) return 0;
+    return habitDoneOnDate(y, m, d) / n;
+  }
+
+  function renderStatsPage() {
+    if (!el("page-stats")) return;
+    stRenderInsights();
+    stRenderHabitChart();
+    stRenderPie();
+    stRenderHeatmap();
+  }
+
+  // ---------- Insight otomatis ----------
+  function stRenderInsights() {
+    const box = el("stInsights");
+    if (!box) return;
+    const y = view.year,
+      m = view.month;
+    const period = el("stInsightPeriod");
+    if (period) period.textContent = `${MONTHS[m]} ${y}`;
+
+    // Bulan sebelumnya
+    const pm = m === 0 ? 11 : m - 1;
+    const py = m === 0 ? y - 1 : y;
+
+    const thisExp = expenseInMonth(y, m);
+    const lastExp = expenseInMonth(py, pm);
+
+    const cards = [];
+
+    // 1. Hemat / boros vs bulan lalu
+    if (lastExp > 0) {
+      const diff = ((lastExp - thisExp) / lastExp) * 100;
+      const pct = Math.abs(Math.round(diff));
+      if (diff > 0) {
+        cards.push({
+          cls: "good",
+          ic: "💚",
+          title: `Kamu ${pct}% lebih hemat dari bulan lalu`,
+          sub: `${formatRp(thisExp)} vs ${formatRp(lastExp)} di ${MONTHS[pm]}`,
+        });
+      } else if (diff < 0) {
+        cards.push({
+          cls: "bad",
+          ic: "🔥",
+          title: `Pengeluaran naik ${pct}% dari bulan lalu`,
+          sub: `${formatRp(thisExp)} vs ${formatRp(lastExp)} di ${MONTHS[pm]}`,
+        });
+      } else {
+        cards.push({
+          cls: "info",
+          ic: "⚖️",
+          title: "Pengeluaran sama dengan bulan lalu",
+          sub: formatRp(thisExp),
+        });
+      }
+    } else if (thisExp > 0) {
+      cards.push({
+        cls: "info",
+        ic: "💸",
+        title: `Total pengeluaran ${formatRp(thisExp)} bulan ini`,
+        sub: "Belum ada data bulan lalu untuk dibandingkan.",
+      });
+    }
+
+    // 2. Rata-rata penyelesaian habit bulan ini (sampai hari ini)
+    if (state.habits.length) {
+      const today = new Date();
+      const isCur = today.getFullYear() === y && today.getMonth() === m;
+      const lastDay = isCur ? today.getDate() : daysInMonth(y, m);
+      let sum = 0;
+      for (let d = 1; d <= lastDay; d++) sum += habitRatioOnDate(y, m, d) * 100;
+      const avg = lastDay ? Math.round(sum / lastDay) : 0;
+      const cls = avg >= 70 ? "good" : avg >= 40 ? "warn" : "bad";
+      cards.push({
+        cls,
+        ic: avg >= 70 ? "🎯" : avg >= 40 ? "💪" : "🌱",
+        title: `Rata-rata habit ${avg}% selesai`,
+        sub:
+          avg >= 70
+            ? "Konsisten! Pertahankan momentumnya."
+            : avg >= 40
+              ? "Lumayan, sedikit lagi menuju rutin."
+              : "Mulai dari langkah kecil setiap hari.",
+      });
+    }
+
+    // 3. Kategori pengeluaran terbesar
+    const catUsage = state.budget.cats
+      .map((c) => ({ name: c.name, used: spentInMonth(c.id, y, m) }))
+      .filter((c) => c.used > 0)
+      .sort((a, b) => b.used - a.used);
+    if (catUsage.length) {
+      const top = catUsage[0];
+      const share = thisExp > 0 ? Math.round((top.used / thisExp) * 100) : 0;
+      cards.push({
+        cls: "info",
+        ic: "📌",
+        title: `Pengeluaran terbesar: ${top.name}`,
+        sub: `${formatRp(top.used)} · ${share}% dari total bulan ini`,
+      });
+    }
+
+    // 4. Aktivitas catatan minggu ini
+    let notesWeek = 0;
+    for (let i = 0; i < 7; i++) {
+      const dd = new Date();
+      dd.setDate(dd.getDate() - i);
+      const key = `${dd.getFullYear()}-${dd.getMonth()}-${dd.getDate()}`;
+      notesWeek += state.notes.filter((n) => n.date === key).length;
+    }
+    if (notesWeek > 0) {
+      cards.push({
+        cls: "good",
+        ic: "📝",
+        title: `${notesWeek} catatan dalam 7 hari terakhir`,
+        sub: "Refleksi rutin bantu jaga konsistensi habit.",
+      });
+    }
+
+    if (cards.length === 0) {
+      box.innerHTML =
+        '<div class="st-empty">Belum ada cukup data. Mulai centang habit & catat pengeluaran untuk melihat insight.</div>';
+      return;
+    }
+
+    box.innerHTML = cards
+      .map(
+        (c) => `
+      <div class="st-insight ${c.cls}">
+        <div class="st-insight-ic">${c.ic}</div>
+        <div class="st-insight-body">
+          <div class="st-insight-title">${escapeHtml(c.title)}</div>
+          <div class="st-insight-sub">${escapeHtml(c.sub)}</div>
+        </div>
+      </div>`,
+      )
+      .join("");
+  }
+
+  // ---------- Line chart: penyelesaian habit per minggu ----------
+  function stRenderHabitChart() {
+    const svg = el("stHabitChart");
+    if (!svg) return;
+    svg.innerHTML = "";
+
+    const WEEKS = 8;
+    const data = []; // persen rata-rata per minggu (lama -> baru)
+    const labels = [];
+    const today = new Date();
+    for (let w = WEEKS - 1; w >= 0; w--) {
+      let sum = 0,
+        cnt = 0;
+      // minggu w: blok 7 hari berakhir (w*7) hari lalu dari hari ini
+      for (let i = 0; i < 7; i++) {
+        const dd = new Date();
+        dd.setDate(today.getDate() - (w * 7 + i));
+        if (dd > today) continue;
+        sum +=
+          habitRatioOnDate(dd.getFullYear(), dd.getMonth(), dd.getDate()) * 100;
+        cnt++;
+      }
+      data.push(cnt ? sum / cnt : 0);
+      labels.push(w === 0 ? "Ini" : `-${w}`);
+    }
+
+    const avgEl = el("stHabitAvg");
+    if (avgEl) {
+      const overall = data.length
+        ? Math.round(data.reduce((a, b) => a + b, 0) / data.length)
+        : 0;
+      avgEl.textContent = `Rata-rata ${overall}%`;
+    }
+
+    if (!state.habits.length) {
+      svg.appendChild(
+        (() => {
+          const t = stMk("text", {
+            x: 300,
+            y: 120,
+            "text-anchor": "middle",
+            fill: "var(--ink-soft)",
+            "font-size": "13",
+          });
+          t.textContent = "Belum ada habit untuk dianalisis";
+          return t;
+        })(),
+      );
+      return;
+    }
+
+    const W = 600,
+      H = 240,
+      padL = 36,
+      padR = 16,
+      padT = 16,
+      padB = 30;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+    const n = data.length;
+    const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+    const yAt = (v) => padT + plotH - (v / 100) * plotH;
+
+    // Gridlines + label Y
+    [0, 25, 50, 75, 100].forEach((v) => {
+      const gy = yAt(v);
+      svg.appendChild(
+        stMk("line", { x1: padL, x2: W - padR, y1: gy, y2: gy }, "chart-grid"),
+      );
+      const lbl = stMk(
+        "text",
+        { x: padL - 7, y: gy + 3, "text-anchor": "end" },
+        "chart-axis",
+      );
+      lbl.textContent = v + "%";
+      svg.appendChild(lbl);
+    });
+
+    // Area di bawah garis
+    let areaD = `M ${xAt(0)} ${yAt(data[0])} `;
+    for (let i = 1; i < n; i++) areaD += `L ${xAt(i)} ${yAt(data[i])} `;
+    areaD += `L ${xAt(n - 1)} ${padT + plotH} L ${xAt(0)} ${padT + plotH} Z`;
+    svg.appendChild(
+      stMk("path", {
+        d: areaD,
+        fill: "rgba(108,99,255,0.14)",
+        stroke: "none",
+      }),
+    );
+
+    // Garis
+    let lineD = "";
+    for (let i = 0; i < n; i++)
+      lineD +=
+        (i === 0 ? "M" : "L") +
+        xAt(i).toFixed(1) +
+        " " +
+        yAt(data[i]).toFixed(1) +
+        " ";
+    svg.appendChild(
+      stMk("path", {
+        d: lineD.trim(),
+        fill: "none",
+        stroke: "#6c63ff",
+        "stroke-width": "2.5",
+        "stroke-linejoin": "round",
+        "stroke-linecap": "round",
+      }),
+    );
+
+    // Titik + label X
+    for (let i = 0; i < n; i++) {
+      svg.appendChild(
+        stMk("circle", {
+          cx: xAt(i),
+          cy: yAt(data[i]),
+          r: 3.5,
+          fill: "#6c63ff",
+        }),
+      );
+      const xl = stMk(
+        "text",
+        { x: xAt(i), y: H - 10, "text-anchor": "middle" },
+        "chart-axis",
+      );
+      xl.textContent = labels[i];
+      svg.appendChild(xl);
+    }
+  }
+
+  // ---------- Donut: distribusi pengeluaran per kategori ----------
+  function stRenderPie() {
+    const svg = el("stPieSvg");
+    const legend = el("stPieLegend");
+    if (!svg || !legend) return;
+    svg.innerHTML = "";
+
+    const y = view.year,
+      m = view.month;
+    const cats = state.budget.cats
+      .map((c) => ({
+        name: c.name,
+        color: c.color,
+        used: spentInMonth(c.id, y, m),
+      }))
+      .filter((c) => c.used > 0)
+      .sort((a, b) => b.used - a.used);
+    const total = cats.reduce((s, c) => s + c.used, 0);
+
+    const centerEl = el("stPieCenter");
+    const totalEl = el("stPieTotal");
+    if (centerEl) centerEl.textContent = compactRp(total);
+    if (totalEl) totalEl.textContent = formatRp(total);
+
+    if (total === 0) {
+      svg.appendChild(
+        stMk("circle", {
+          cx: 90,
+          cy: 90,
+          r: 70,
+          fill: "none",
+          stroke: "var(--line)",
+          "stroke-width": "24",
+        }),
+      );
+      legend.innerHTML =
+        '<div class="st-empty">Belum ada pengeluaran bulan ini.</div>';
+      return;
+    }
+
+    const r = 70;
+    const C = 2 * Math.PI * r;
+    let acc = 0;
+    cats.forEach((c) => {
+      const frac = c.used / total;
+      const seg = frac * C;
+      svg.appendChild(
+        stMk("circle", {
+          cx: 90,
+          cy: 90,
+          r: r,
+          fill: "none",
+          stroke: c.color,
+          "stroke-width": "24",
+          "stroke-dasharray": `${seg.toFixed(2)} ${(C - seg).toFixed(2)}`,
+          transform: `rotate(${(acc * 360 - 90).toFixed(2)} 90 90)`,
+        }),
+      );
+      acc += frac;
+    });
+
+    legend.innerHTML = cats
+      .map((c) => {
+        const pct = Math.round((c.used / total) * 100);
+        return `
+        <div class="st-leg-row">
+          <span class="st-leg-dot" style="background:${c.color}"></span>
+          <span class="st-leg-name">${escapeHtml(c.name)}</span>
+          <span class="st-leg-val">${formatRp(c.used)}</span>
+          <span class="st-leg-pct">${pct}%</span>
+        </div>`;
+      })
+      .join("");
+  }
+
+  // ---------- Heatmap aktivitas 3 bulan ----------
+  function stRenderHeatmap() {
+    const grid = el("stHeatGrid");
+    if (!grid) return;
+    const today = new Date();
+    const DAYS = 91; // ~13 minggu
+
+    // Susun agar kolom = minggu, baris = hari (Min..Sab).
+    // Mulai dari (DAYS-1) hari lalu, geser mundur ke awal pekannya.
+    const start = new Date();
+    start.setDate(today.getDate() - (DAYS - 1));
+    start.setDate(start.getDate() - start.getDay()); // mundur ke Minggu
+
+    const cells = [];
+    let activeDays = 0;
+    const cur = new Date(start);
+    while (cur <= today) {
+      const ratio = habitRatioOnDate(
+        cur.getFullYear(),
+        cur.getMonth(),
+        cur.getDate(),
+      );
+      let lvl = 0;
+      if (ratio > 0) activeDays++;
+      if (ratio >= 0.67) lvl = 3;
+      else if (ratio >= 0.34) lvl = 2;
+      else if (ratio > 0) lvl = 1;
+      const isToday =
+        cur.getFullYear() === today.getFullYear() &&
+        cur.getMonth() === today.getMonth() &&
+        cur.getDate() === today.getDate();
+      const pct = Math.round(ratio * 100);
+      const label = `${cur.getDate()} ${MONTHS[cur.getMonth()]}: ${pct}% habit`;
+      cells.push(
+        `<div class="st-heat-cell dn-l${lvl}${isToday ? " st-today" : ""}" title="${escapeHtml(
+          label,
+        )}"></div>`,
+      );
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    grid.innerHTML = cells.join("");
+    const activeEl = el("stHeatActive");
+    if (activeEl) activeEl.textContent = `${activeDays} hari aktif`;
   }
 
   // ---------- Modal rincian pemasukan ----------
@@ -2583,6 +3111,582 @@
     });
   }
 
+  // ==================== TARGET TABUNGAN (SAVINGS GOALS) ====================
+  // Tujuan keuangan dengan progress bar, setoran, riwayat, & estimasi.
+  const GOAL_EMOJIS = [
+    "📱",
+    "💻",
+    "✈️",
+    "🏠",
+    "🎮",
+    "🚗",
+    "👟",
+    "📚",
+    "💍",
+    "🎓",
+    "🏋️",
+    "🌴",
+    "🐕",
+    "💊",
+    "🎸",
+    "🏕️",
+    "🎯",
+    "💰",
+    "🏦",
+  ];
+  const GOAL_COLORS = [
+    { hex: "#16a34a", name: "Hijau" },
+    { hex: "#2563eb", name: "Biru" },
+    { hex: "#7c3aed", name: "Ungu" },
+    { hex: "#d97706", name: "Amber" },
+    { hex: "#dc2626", name: "Merah" },
+    { hex: "#0891b2", name: "Cyan" },
+    { hex: "#db2777", name: "Pink" },
+    { hex: "#374151", name: "Abu-Abu" },
+  ];
+  const GOAL_SORT_LABELS = ["Terdekat", "Prioritas", "Progres"];
+
+  const goalUI = {
+    editId: null,
+    depositId: null,
+    historyId: null,
+    selEmoji: GOAL_EMOJIS[0],
+    selColor: GOAL_COLORS[0].hex,
+    sortMode: 0,
+  };
+
+  function goalDateStr(date) {
+    const d = date || new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function goalDaysUntil(dateStr) {
+    if (!dateStr) return -1;
+    const diff = new Date(dateStr + "T00:00:00") - new Date();
+    return Math.ceil(diff / 86400000);
+  }
+
+  function goalDeadlinePill(daysLeft, isDone) {
+    if (isDone) return { label: "✅ Selesai", bg: "#dcfce7", col: "#14532d" };
+    if (daysLeft < 0) return { label: "⏰ Terlewat", bg: "#fee2e2", col: "#991b1b" };
+    if (daysLeft === 0) return { label: "🔥 Hari ini!", bg: "#fef3c7", col: "#92400e" };
+    if (daysLeft <= 7) return { label: `⚡ ${daysLeft}h`, bg: "#fef3c7", col: "#92400e" };
+    if (daysLeft <= 30) return { label: `📅 ${daysLeft}h`, bg: "#eff6ff", col: "#1e40af" };
+    return { label: `📅 ${daysLeft}h`, bg: "#f3f4f6", col: "#6b7280" };
+  }
+
+  function goalDailyTarget(remain, daysLeft) {
+    if (remain <= 0) return "✅";
+    if (daysLeft <= 0) return "—";
+    const d = Math.ceil(remain / daysLeft);
+    return "Rp" + (d >= 1000 ? (d / 1000).toFixed(1) + "rb" : d);
+  }
+
+  function goalEstimatedDate(remain, dailySavings) {
+    if (remain <= 0) return "✅";
+    if (!dailySavings || dailySavings <= 0) return "—";
+    const days = Math.ceil(remain / dailySavings);
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  }
+
+  function goalHexToFaint(hex) {
+    if (!hex || hex[0] !== "#" || hex.length < 7) return "rgba(22,163,74,0.12)";
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},0.12)`;
+  }
+
+  function getSortedGoals() {
+    const copy = [...state.goals];
+    if (goalUI.sortMode === 0) {
+      copy.sort((a, b) => {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return a.deadline.localeCompare(b.deadline);
+      });
+    } else if (goalUI.sortMode === 1) {
+      const P = { tinggi: 0, sedang: 1, rendah: 2 };
+      copy.sort((a, b) => (P[a.priority] || 1) - (P[b.priority] || 1));
+    } else {
+      copy.sort(
+        (a, b) => b.saved / (b.target || 1) - a.saved / (a.target || 1),
+      );
+    }
+    return copy;
+  }
+
+  function cycleGoalSort() {
+    goalUI.sortMode = (goalUI.sortMode + 1) % 3;
+    const label = el("goalSortLabel");
+    if (label) label.textContent = GOAL_SORT_LABELS[goalUI.sortMode];
+    renderGoals();
+  }
+
+  // ---------- Render daftar tujuan ----------
+  function renderGoals() {
+    const list = el("goalList");
+    const empty = el("goalEmpty");
+    const tip = el("goalTip");
+    if (!list) return;
+
+    const goals = getSortedGoals();
+
+    const totalSaved = goals.reduce((s, g) => s + (g.saved || 0), 0);
+    const totalRemain = goals.reduce(
+      (s, g) => s + Math.max(0, (g.target || 0) - (g.saved || 0)),
+      0,
+    );
+    const doneCount = goals.filter(
+      (g) => g.saved >= g.target && g.target > 0,
+    ).length;
+
+    setMoney("goalSumTotal", totalSaved);
+    setMoney("goalSumRemain", totalRemain);
+    const doneEl = el("goalSumDone");
+    if (doneEl) doneEl.textContent = doneCount;
+    const subEl = el("goalCountSub");
+    if (subEl) subEl.textContent = `${goals.length} tujuan aktif`;
+
+    if (goals.length === 0) {
+      list.innerHTML = "";
+      if (empty) empty.hidden = false;
+      if (tip) tip.hidden = true;
+      return;
+    }
+    if (empty) empty.hidden = true;
+    if (tip) tip.hidden = false;
+
+    list.innerHTML = goals.map(goalCardHtml).join("");
+
+    requestAnimationFrame(() => {
+      goals.forEach((g) => {
+        const pct = Math.min(
+          100,
+          Math.round((g.saved / (g.target || 1)) * 100),
+        );
+        const bar = el(`goalBar-${g.id}`);
+        if (bar) bar.style.width = pct + "%";
+      });
+    });
+  }
+
+  function goalCardHtml(g) {
+    const pct = Math.min(100, Math.round((g.saved / (g.target || 1)) * 100));
+    const remain = Math.max(0, (g.target || 0) - (g.saved || 0));
+    const isDone = g.saved >= g.target && g.target > 0;
+    const daysLeft = goalDaysUntil(g.deadline);
+    const deadlineInfo = goalDeadlinePill(daysLeft, isDone);
+    const dailyNeeded = goalDailyTarget(remain, daysLeft);
+    const estDate = goalEstimatedDate(remain, g.dailySavings);
+    const stripColor = g.color || "#16a34a";
+    const iconBg = goalHexToFaint(g.color);
+
+    return `
+    <div class="goal-card">
+      <div class="goal-strip" style="background:${stripColor}"></div>
+      <div class="goal-card-body">
+        <div class="goal-top">
+          <div class="goal-icon-wrap" style="background:${iconBg}">${g.icon || "🎯"}</div>
+          <div class="goal-info">
+            <div class="goal-name">${escapeHtml(g.name || "")}</div>
+            <div class="goal-target">Target: Rp${(g.target || 0).toLocaleString("id-ID")}${
+              g.note ? ` · <em class="goal-note">${escapeHtml(g.note)}</em>` : ""
+            }</div>
+          </div>
+          <div class="goal-deadline-pill" style="background:${deadlineInfo.bg};color:${deadlineInfo.col}">${deadlineInfo.label}</div>
+        </div>
+
+        <div class="goal-progress-wrap">
+          <div class="goal-progress-track">
+            <div class="goal-progress-fill" id="goalBar-${g.id}" style="width:0%;background:${stripColor}"></div>
+          </div>
+          <div class="goal-progress-labels">
+            <span class="goal-prog-saved" style="color:${stripColor}">Rp${(g.saved || 0).toLocaleString("id-ID")}</span>
+            <span class="goal-prog-remain">${isDone ? "🎉 Tercapai!" : `Sisa Rp${remain.toLocaleString("id-ID")}`}</span>
+            <span class="goal-prog-pct" style="color:${stripColor}">${pct}%</span>
+          </div>
+        </div>
+
+        <div class="goal-stats">
+          <div class="goal-gstat">
+            <div class="goal-gstat-val">${isDone ? "✅" : daysLeft >= 0 ? daysLeft + " hr" : "—"}</div>
+            <div class="goal-gstat-lbl">Sisa Hari</div>
+          </div>
+          <div class="goal-gstat">
+            <div class="goal-gstat-val">${dailyNeeded}</div>
+            <div class="goal-gstat-lbl">Per Hari</div>
+          </div>
+          <div class="goal-gstat">
+            <div class="goal-gstat-val">${estDate}</div>
+            <div class="goal-gstat-lbl">Estimasi</div>
+          </div>
+        </div>
+      </div>
+
+      ${isDone ? `<div class="goal-done-banner">🎉 Tujuan ini sudah tercapai! Luar biasa.</div>` : ""}
+
+      <div class="goal-menu-row">
+        <button class="goal-action primary" type="button" data-goal-deposit="${g.id}">＋ Setor</button>
+        <button class="goal-action" type="button" data-goal-history="${g.id}">📋 Riwayat</button>
+        <button class="goal-action" type="button" data-goal-edit="${g.id}">✏️ Edit</button>
+        <button class="goal-action danger" type="button" data-goal-delete="${g.id}">🗑</button>
+      </div>
+    </div>`;
+  }
+
+  // ---------- Modal Tambah / Edit ----------
+  function buildGoalEmojiGrid() {
+    const grid = el("goalEmojiGrid");
+    if (!grid) return;
+    grid.innerHTML = GOAL_EMOJIS.map(
+      (e) =>
+        `<button type="button" class="goal-emoji-opt${e === goalUI.selEmoji ? " sel" : ""}" data-goal-emoji="${e}">${e}</button>`,
+    ).join("");
+  }
+
+  function buildGoalColorGrid() {
+    const grid = el("goalColorGrid");
+    if (!grid) return;
+    grid.innerHTML = GOAL_COLORS.map(
+      (c) =>
+        `<button type="button" class="goal-color-opt${c.hex === goalUI.selColor ? " sel" : ""}" style="background:${c.hex}" title="${c.name}" data-goal-color="${c.hex}"></button>`,
+    ).join("");
+  }
+
+  function openGoalAddModal() {
+    goalUI.editId = null;
+    goalUI.selEmoji = GOAL_EMOJIS[0];
+    goalUI.selColor = GOAL_COLORS[0].hex;
+    el("goalModalTitle").textContent = "Tujuan Baru";
+    ["goalFName", "goalFTarget", "goalFSaved", "goalFNote"].forEach((id) => {
+      const node = el(id);
+      if (node) node.value = id === "goalFSaved" ? "0" : "";
+    });
+    el("goalFPriority").value = "sedang";
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    el("goalFDeadline").value = goalDateStr(d);
+    buildGoalEmojiGrid();
+    buildGoalColorGrid();
+    openGoalModal("goalEditModal");
+  }
+
+  function openGoalEditModal(id) {
+    const g = state.goals.find((x) => x.id === id);
+    if (!g) return;
+    goalUI.editId = id;
+    goalUI.selEmoji = g.icon || GOAL_EMOJIS[0];
+    goalUI.selColor = g.color || GOAL_COLORS[0].hex;
+    el("goalModalTitle").textContent = "Edit Tujuan";
+    el("goalFName").value = g.name || "";
+    el("goalFTarget").value = g.target || "";
+    el("goalFSaved").value = g.saved || 0;
+    el("goalFDeadline").value = g.deadline || "";
+    el("goalFPriority").value = g.priority || "sedang";
+    el("goalFNote").value = g.note || "";
+    buildGoalEmojiGrid();
+    buildGoalColorGrid();
+    openGoalModal("goalEditModal");
+  }
+
+  function saveGoal() {
+    const name = el("goalFName").value.trim();
+    const target = parseInt(el("goalFTarget").value, 10) || 0;
+    const saved = parseInt(el("goalFSaved").value, 10) || 0;
+    const deadline = el("goalFDeadline").value;
+    const priority = el("goalFPriority").value;
+    const note = el("goalFNote").value.trim();
+
+    if (!name) {
+      showToast("⚠️ Nama tujuan wajib diisi!");
+      return;
+    }
+    if (target <= 0) {
+      showToast("⚠️ Target harus lebih dari 0!");
+      return;
+    }
+    if (!deadline) {
+      showToast("⚠️ Deadline wajib diisi!");
+      return;
+    }
+
+    if (goalUI.editId) {
+      const idx = state.goals.findIndex((g) => g.id === goalUI.editId);
+      if (idx > -1) {
+        state.goals[idx] = {
+          ...state.goals[idx],
+          name,
+          target,
+          saved,
+          deadline,
+          priority,
+          note,
+          icon: goalUI.selEmoji,
+          color: goalUI.selColor,
+        };
+      }
+      showToast("✅ Tujuan diperbarui!");
+    } else {
+      state.goals.push({
+        id: uid(),
+        name,
+        target,
+        saved,
+        deadline,
+        priority,
+        note,
+        icon: goalUI.selEmoji,
+        color: goalUI.selColor,
+        dailySavings: 0,
+        deposits:
+          saved > 0
+            ? [{ amount: saved, date: goalDateStr(), note: "Tabungan awal" }]
+            : [],
+        createdAt: goalDateStr(),
+      });
+      showToast("🎯 Tujuan baru dibuat!");
+    }
+
+    save();
+    closeGoalModal("goalEditModal");
+    renderGoals();
+  }
+
+  // ---------- Modal Setor ----------
+  function openGoalDepositModal(id) {
+    const g = state.goals.find((x) => x.id === id);
+    if (!g) return;
+    goalUI.depositId = id;
+    const remain = Math.max(0, (g.target || 0) - (g.saved || 0));
+    el("goalDepTitle").textContent = "💰 Setor ke: " + g.name;
+    el("goalDepRemain").textContent = `Sisa target: Rp${remain.toLocaleString("id-ID")}`;
+    el("goalDepAmount").value = "";
+    el("goalDepNote").value = "";
+    el("goalDepDisplay").textContent = "Rp 0";
+    openGoalModal("goalDepositModal");
+  }
+
+  function updateGoalDepositDisplay() {
+    const amt = parseInt(el("goalDepAmount").value, 10) || 0;
+    el("goalDepDisplay").textContent = "Rp " + amt.toLocaleString("id-ID");
+  }
+
+  function doGoalDeposit() {
+    const amt = parseInt(el("goalDepAmount").value, 10) || 0;
+    const note = el("goalDepNote").value.trim();
+    if (amt <= 0) {
+      showToast("⚠️ Masukkan jumlah yang valid!");
+      return;
+    }
+    const g = state.goals.find((x) => x.id === goalUI.depositId);
+    if (!g) return;
+
+    const wasDone = g.saved >= g.target && g.target > 0;
+    g.saved = (g.saved || 0) + amt;
+    if (!Array.isArray(g.deposits)) g.deposits = [];
+    g.deposits.unshift({ amount: amt, date: goalDateStr(), note });
+
+    const created = g.createdAt
+      ? new Date(g.createdAt + "T00:00:00")
+      : new Date();
+    const days = Math.max(1, Math.round((new Date() - created) / 86400000));
+    g.dailySavings = Math.round(g.saved / days);
+
+    save();
+    closeGoalModal("goalDepositModal");
+
+    const isDone = g.saved >= g.target && g.target > 0;
+    renderGoals();
+
+    if (isDone && !wasDone) {
+      launchGoalConfetti();
+      showToast("🎉 Target tercapai! Selamat!");
+      if (typeof NotifManager !== "undefined") {
+        try {
+          NotifManager.sendLocal(
+            "🎉 Target Tercapai!",
+            `"${g.name}" berhasil kamu tabung!`,
+            { tag: "goal-done-" + g.id, url: "./" },
+          );
+        } catch (e) {}
+      }
+    } else {
+      showToast(`✅ +Rp${amt.toLocaleString("id-ID")} ditabung!`);
+    }
+    if (typeof RewardEngine !== "undefined") {
+      try {
+        RewardEngine.onMoneySaved(amt);
+      } catch (e) {}
+    }
+  }
+
+  // ---------- Modal Riwayat ----------
+  function openGoalHistoryModal(id) {
+    const g = state.goals.find((x) => x.id === id);
+    if (!g) return;
+    goalUI.historyId = id;
+    el("goalHistTitle").textContent = "📋 " + g.name;
+    const deps = g.deposits || [];
+    el("goalHistSub").textContent = `${deps.length} setoran`;
+    const body = el("goalHistBody");
+    body.innerHTML =
+      deps.length === 0
+        ? '<p class="goal-hist-empty">Belum ada setoran.</p>'
+        : deps
+            .map(
+              (d) => `
+        <div class="goal-hist-row">
+          <div class="goal-hist-dot" style="background:${g.color || "#16a34a"}"></div>
+          <div class="goal-hist-main">
+            <div class="goal-hist-amt">+Rp${(d.amount || 0).toLocaleString("id-ID")}</div>
+            ${d.note ? `<div class="goal-hist-note">${escapeHtml(d.note)}</div>` : ""}
+          </div>
+          <div class="goal-hist-date">${escapeHtml(d.date || "")}</div>
+        </div>`,
+            )
+            .join("");
+    openGoalModal("goalHistoryModal");
+  }
+
+  function deleteGoal(id) {
+    const g = state.goals.find((x) => x.id === id);
+    if (!g) return;
+    if (
+      !confirm(
+        `Hapus tujuan "${g.name}"?\nTabungan yang sudah dikumpulkan tidak bisa dikembalikan.`,
+      )
+    )
+      return;
+    state.goals = state.goals.filter((x) => x.id !== id);
+    save();
+    renderGoals();
+    showToast("🗑 Tujuan dihapus.");
+  }
+
+  // ---------- Modal helpers ----------
+  function openGoalModal(id) {
+    const m = el(id);
+    if (m) m.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeGoalModal(id) {
+    const m = el(id);
+    if (m) m.hidden = true;
+    document.body.style.overflow = "";
+  }
+
+  // ---------- Confetti ----------
+  function launchGoalConfetti() {
+    const colors = [
+      "#16a34a",
+      "#4ade80",
+      "#fbbf24",
+      "#60a5fa",
+      "#f472b6",
+      "#a78bfa",
+    ];
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement("div");
+      p.className = "goal-confetti";
+      p.style.left = Math.random() * 100 + "vw";
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      p.style.setProperty("--dur", 1 + Math.random() * 1.5 + "s");
+      const sz = 6 + Math.random() * 8;
+      p.style.width = sz + "px";
+      p.style.height = sz + "px";
+      p.style.borderRadius = Math.random() > 0.5 ? "50%" : "2px";
+      p.style.animationDelay = Math.random() * 0.5 + "s";
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 3000);
+    }
+  }
+
+  // ---------- Pemasangan event (delegasi) untuk fitur tujuan ----------
+  function bindGoalEvents() {
+    const addBtn = el("goalAddBtn");
+    if (addBtn) addBtn.addEventListener("click", openGoalAddModal);
+    const emptyBtn = el("goalEmptyBtn");
+    if (emptyBtn) emptyBtn.addEventListener("click", openGoalAddModal);
+    const sortBtn = el("goalSortBtn");
+    if (sortBtn) sortBtn.addEventListener("click", cycleGoalSort);
+
+    const list = el("goalList");
+    if (list) {
+      list.addEventListener("click", (e) => {
+        const t = e.target.closest(
+          "[data-goal-deposit],[data-goal-history],[data-goal-edit],[data-goal-delete]",
+        );
+        if (!t) return;
+        if (t.dataset.goalDeposit) openGoalDepositModal(t.dataset.goalDeposit);
+        else if (t.dataset.goalHistory)
+          openGoalHistoryModal(t.dataset.goalHistory);
+        else if (t.dataset.goalEdit) openGoalEditModal(t.dataset.goalEdit);
+        else if (t.dataset.goalDelete) deleteGoal(t.dataset.goalDelete);
+      });
+    }
+
+    const emojiGrid = el("goalEmojiGrid");
+    if (emojiGrid) {
+      emojiGrid.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-goal-emoji]");
+        if (!b) return;
+        goalUI.selEmoji = b.dataset.goalEmoji;
+        buildGoalEmojiGrid();
+      });
+    }
+    const colorGrid = el("goalColorGrid");
+    if (colorGrid) {
+      colorGrid.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-goal-color]");
+        if (!b) return;
+        goalUI.selColor = b.dataset.goalColor;
+        buildGoalColorGrid();
+      });
+    }
+    const saveBtn = el("goalSaveBtn");
+    if (saveBtn) saveBtn.addEventListener("click", saveGoal);
+
+    const depInput = el("goalDepAmount");
+    if (depInput) depInput.addEventListener("input", updateGoalDepositDisplay);
+    const depDoBtn = el("goalDepDoBtn");
+    if (depDoBtn) depDoBtn.addEventListener("click", doGoalDeposit);
+    const chips = el("goalDepChips");
+    if (chips) {
+      chips.addEventListener("click", (e) => {
+        const c = e.target.closest("[data-goal-chip]");
+        if (!c) return;
+        el("goalDepAmount").value = c.dataset.goalChip;
+        updateGoalDepositDisplay();
+      });
+    }
+
+    ["goalEditModal", "goalDepositModal", "goalHistoryModal"].forEach((id) => {
+      const m = el(id);
+      if (!m) return;
+      m.addEventListener("click", (e) => {
+        if (e.target === m || e.target.closest("[data-goal-close]")) {
+          closeGoalModal(id);
+        }
+      });
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      ["goalEditModal", "goalDepositModal", "goalHistoryModal"].forEach(
+        (id) => {
+          const m = el(id);
+          if (m && !m.hidden) closeGoalModal(id);
+        },
+      );
+    });
+  }
+
   function escapeHtml(s) {
     return s.replace(
       /[&<>"']/g,
@@ -2764,9 +3868,11 @@
   });
 
   // ---------- Navigasi halaman ----------
-  document.querySelectorAll(".page-tab").forEach((tab) => {
+  document.querySelectorAll(".nav-item").forEach((tab) => {
     tab.addEventListener("click", () => switchPage(tab.dataset.page));
   });
+  const quickNoteFab = el("quickNoteFab");
+  if (quickNoteFab) quickNoteFab.addEventListener("click", quickNote);
 
   // ---------- Daily Notes ----------
   const dnMoodRow = el("dnMoodRow");
@@ -2916,10 +4022,21 @@
   initTheme();
   renderAll();
   updateNotifyBtn();
+  bindGoalEvents();
+  // Inisialisasi manajer notifikasi (pengingat pagi/malam, streak, budget).
+  if (typeof NotifManager !== "undefined") {
+    try {
+      NotifManager.init();
+    } catch (e) {}
+  }
   // Pulihkan halaman terakhir yang dibuka.
   try {
     const savedPage = localStorage.getItem("habitBuilder.page");
-    if (savedPage === "finance" || savedPage === "notes")
+    if (
+      savedPage === "finance" ||
+      savedPage === "notes" ||
+      savedPage === "stats"
+    )
       switchPage(savedPage);
   } catch (e) {}
   maybeNotify();
